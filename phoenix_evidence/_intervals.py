@@ -93,3 +93,55 @@ def normal_cdf(x: float) -> float:
 
 def normal_quantile(q: float) -> float:
     return _z(q)
+
+
+def _betacf(a: float, b: float, x: float) -> float:
+    """Continued fraction for the regularized incomplete beta function (Numerical Recipes, betacf)."""
+    qab, qap, qam = a + b, a + 1, a - 1
+    c, d = 1.0, 1 - qab * x / qap
+    d = 1 / (d if abs(d) > 1e-300 else 1e-300)
+    h = d
+    for m in range(1, 300):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1 + aa * d
+        d = 1 / (d if abs(d) > 1e-300 else 1e-300)
+        c = 1 + aa / c if abs(1 + aa / c) > 1e-300 else 1e-300
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1 + aa * d
+        d = 1 / (d if abs(d) > 1e-300 else 1e-300)
+        c = 1 + aa / c if abs(1 + aa / c) > 1e-300 else 1e-300
+        delta = d * c
+        h *= delta
+        if abs(delta - 1) < 1e-12:
+            break
+    return h
+
+
+def _incomplete_beta(a: float, b: float, x: float) -> float:
+    if x <= 0:
+        return 0.0
+    if x >= 1:
+        return 1.0
+    front = math.exp(math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b) + a * math.log(x) + b * math.log1p(-x))
+    if x < (a + 1) / (a + b + 2):
+        return front * _betacf(a, b, x) / a
+    return 1 - front * _betacf(b, a, 1 - x) / b
+
+
+def student_t_cdf(t: float, df: float) -> float:
+    tail = 0.5 * _incomplete_beta(df / 2, 0.5, df / (df + t * t))
+    return 1 - tail if t >= 0 else tail
+
+
+def student_t_quantile(q: float, df: float) -> float:
+    """Quantile of Student's t by bisection on its exact cdf."""
+    low, high = -1e3, 1e3
+    for _ in range(200):
+        mid = (low + high) / 2
+        if student_t_cdf(mid, df) < q:
+            low = mid
+        else:
+            high = mid
+    return (low + high) / 2

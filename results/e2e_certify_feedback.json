@@ -1,0 +1,61 @@
+{
+ "project": "quill-support",
+ "annotation": "conciseness",
+ "human_annotation": "conciseness_review",
+ "verdict": "NOT_TRUSTWORTHY",
+ "min_kappa": 0.6,
+ "paired_spans": 17,
+ "spans_with_human_label": 17,
+ "spans_with_judge_label": 40,
+ "human_label_but_no_judge_label": 0,
+ "kappa": 0.17073170731707313,
+ "kappa_interval": [
+  -0.27209640978237976,
+  0.4687499999999999
+ ],
+ "agreement": "17 examples, 17 judgments\naccuracy 0.53 [0.28, 0.77]\nkappa 0.17 [-0.27, 0.47]\nbalanced accuracy 0.73 [0.35, 0.86]\n  recall on 'concise': 7/15 [0.21, 0.73]\n  recall on 'verbose': 2/2 [0.16, 1.00]",
+ "labels_to_settle": null,
+ "judge_identifier": "judge-none-run-1",
+ "disagreements": [
+  {
+   "span_id": "462fbc800c814f6a",
+   "human": "concise",
+   "judge": "verbose"
+  },
+  {
+   "span_id": "4ebc41f54455414c",
+   "human": "concise",
+   "judge": "verbose"
+  },
+  {
+   "span_id": "76ed703ce09f48e6",
+   "human": "concise",
+   "judge": "verbose"
+  },
+  {
+   "span_id": "a1d56f9873494881",
+   "human": "concise",
+   "judge": "verbose"
+  },
+  {
+   "span_id": "a6c465f0e2e74aea",
+   "human": "concise",
+   "judge": "verbose"
+  },
+  {
+   "span_id": "a93e0f2f74a341cc",
+   "human": "concise",
+   "judge": "verbose"
+  },
+  {
+   "span_id": "b74bd02f3c0a4e90",
+   "human": "concise",
+   "judge": "verbose"
+  },
+  {
+   "span_id": "f9ff4fed8a204e9e",
+   "human": "concise",
+   "judge": "verbose"
+  }
+ ]
+}

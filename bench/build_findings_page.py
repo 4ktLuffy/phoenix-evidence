@@ -52,6 +52,12 @@ def main() -> None:
     inj = json.loads((R / 'injection_refusal.json').read_text())
     demo = (R / 'cli_demo.txt').read_text()
     shot = base64.b64encode((R / 'screenshots' / 'phoenix_compare_fragile.jpg').read_bytes()).decode()
+    shot_after = base64.b64encode((R / 'screenshots' / 'phoenix_with_evidence.jpg').read_bytes()).decode()
+    ppi = {r['budget']: r for r in json.loads((R / 'ppi_sim.json').read_text())}
+    scale = json.loads((R / 'scale_test.json').read_text())
+    e2e_cert = json.loads((R / 'e2e_certify_feedback.json').read_text())
+    e2e_rate = json.loads((R / 'e2e_corrected_rate.json').read_text())
+    audit_labels = json.loads((R / 'label_audit.json').read_text())
 
     # The two compare runs in the demo, parsed from their own output tables.
     tables = re.findall(
@@ -89,6 +95,24 @@ def main() -> None:
 
     page = TEMPLATE.format(
         shot=shot,
+        shot_after=shot_after,
+        ppi80=ppi[80]['human_labels_for_same_width'],
+        ppi160=ppi[160]['human_labels_for_same_width'],
+        ppi_cov=f'{min(r["active_coverage"] for r in ppi.values()):.0%}',
+        sc_est=f'{scale["corrected"]["estimate"]:.3f}',
+        sc_lo=f'{scale["corrected"]["interval"][0]:.3f}',
+        sc_hi=f'{scale["corrected"]["interval"][1]:.3f}',
+        sc_judge=f'{scale["corrected"]["judge_rate"]:.3f}',
+        sc_truth=f'{scale["true_human_pass_rate"]:.3f}',
+        sc_compare=scale['compare_seconds'],
+        e2e_kappa=f'{e2e_cert["kappa"]:.2f}',
+        e2e_klo=f'{e2e_cert["kappa_interval"][0]:.2f}',
+        e2e_khi=f'{e2e_cert["kappa_interval"][1]:.2f}',
+        e2e_n=e2e_cert['paired_spans'],
+        e2e_judge=f'{e2e_rate["judge_rate"]:.2f}',
+        e2e_est=f'{e2e_rate["estimate"]:.2f}',
+        audit_suites=len(audit_labels),
+        audit_cases=sum(v['cases'] for v in audit_labels.values()),
         lo_pass=f'{lo_pass:.0%}',
         hi_pass=f'{hi_pass:.0%}',
         audit_rows='\n'.join(rows),
@@ -181,18 +205,19 @@ footer {{ color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--r
 </header>
 
 <figure>
-  <img src="data:image/jpeg;base64,{shot}" alt="Phoenix experiment compare page: exact_match 0.84 for the baseline and 0.96, +14.49%, for a version that crashed on 12 of 120 questions; cost cards show +0% for missing values; latency shows 65 improved and 48 regressed.">
-  <figcaption>Phoenix's own compare page. The candidate crashed on 12 of 120 questions; Phoenix averages the runs that finished and shows it as +14.49%. The cost cards say +0% for costs that do not exist. Latency counts 65 runs improved and 48 regressed between two tasks that both average 0 ms. <code>phoenix-evidence compare</code> on the same experiments finds no detectable gain and a significant rise in task errors.</figcaption>
+  <img src="data:image/jpeg;base64,{shot}" alt="Phoenix experiment compare page: exact_match 0.84 for the baseline and 0.96, +14.49%, for a version that crashed on 10 of 120 questions; cost cards show +0% for missing values; latency shows 65 improved and 48 regressed.">
+  <figcaption>Phoenix's own compare page. The candidate crashed on 10 of 120 questions; Phoenix averages the runs that finished and shows it as +14.49%. The cost cards say +0% for costs that do not exist. Latency counts 65 runs improved and 48 regressed between two tasks that both average 0 ms. <code>phoenix-evidence compare</code> on the same experiments finds no detectable gain and a significant rise in task errors.</figcaption>
 </figure>
 
 <section>
   <div class="eyebrow">What we found</div>
-  <h2>Five findings, each reproduced by running code</h2>
+  <h2>What we found, each reproduced by running code</h2>
   <div class="ledger">
     <div class="item"><span class="pill bad">bug &middot; fixed</span><div><h3>The compare page reports regressions between identical experiments</h3><p>The base side sums every span of every repetition; the compare side takes the single cheapest span. Two identical experiments disagree as soon as a trace has two LLM spans. A new test fails on main and passes with the fix on SQLite and Postgres. <a href="{px}/src/phoenix/server/api/queries.py#L745-L801">queries.py:745</a> &middot; <a href="{repo}/blob/main/upstream/01-compare-page-best-run.patch">patch</a></p></div></div>
     <div class="item"><span class="pill bad">bug &middot; fixed</span><div><h3>"+0%" for changes that do not exist</h3><p>A missing value, or a base of 0, reads as "no change". The fix returns <code>--</code>, Phoenix's own text for a missing number, with tests. <a href="{repo}/blob/main/upstream/02-compare-page-delta-text.patch">patch</a></p></div></div>
-    <div class="item"><span class="pill bad">data bug</span><div><h3>Two labels in the faithfulness benchmark are reversed</h3><p>The "right" answer to the moth question is the family, Crambidae; the answer labelled unfaithful states exactly what the context says. Three more labels are contestable. The certificate's label review flagged all of them: the judge disagreed with the label on every repeat. <a href="{px}/js/benchmarks/evals-benchmarks/src/faithfulness.eval.ts#L76-L84">faithfulness.eval.ts:76</a></p></div></div>
-    <div class="item"><span class="pill warn">misleading</span><div><h3>Human feedback erases the judge it corrects, or blurs into it</h3><p>With default settings a human label on a span replaces the judge's label, so the data needed to check the judge is gone. When both are kept, the project page averages them: it read 0.25 where the judge said 1.0 and the human said 0.0. Reproduced on a live Phoenix.</p></div></div>
+    <div class="item"><span class="pill bad">data bug</span><div><h3>Two labels in the faithfulness benchmark are reversed</h3><p>The "right" answer to the moth question is the family, Crambidae; the answer labelled unfaithful states exactly what the context says. The certificate's label review flagged four faithfulness cases, where the judge disagreed with the label on every repeat: this pair, and two that are contestable. <a href="{px}/js/benchmarks/evals-benchmarks/src/faithfulness.eval.ts#L76-L84">faithfulness.eval.ts:76</a></p></div></div>
+    <div class="item"><span class="pill warn">misleading</span><div><h3>Human feedback erases the judge it corrects, or blurs into it</h3><p>With default settings a human label on a span replaces the judge's label, so the data needed to check the judge is gone; in the span annotation panel, changing the pre-filled label rewrites the judge's annotation as a human one. When both are kept, the project page averages them: it read 0.25 where the judge said 1.0 and the human said 0.0. Reproduced on a live Phoenix, through the API and the UI.</p></div></div>
+    <div class="item"><span class="pill warn">benchmark design</span><div><h3>Four tool-invocation cases hinge on a date nobody stated</h3><p>Re-judging {audit_cases} cases across {audit_suites} suites, twice each, and reading all 19 cases where the judge consistently disagreed with the label: in tool invocation, 4 of 31 "correct" calls turn "tomorrow" or "February 1st" into a 2024 date with no current date in the input, and a fifth invents dates the user never gave. A careful judge calls them unsupported. Elsewhere the flags mostly describe the judge: too lenient on the correctness rubric's clauses on hedged and vague answers, too strict on common knowledge. <a href="{repo}/blob/main/results/label_audit_review.md">Every flag, read</a></p></div></div>
     <div class="item"><span class="pill warn">measured</span><div><h3>The benchmark gates cannot decide</h3><p>Across the twelve two-class suites, the full gate passes a judge 5 points below the bar {lo_pass} to {hi_pass} of the time. No suite can tell two good judges apart; pooled over the Jev post's 517 examples, the smallest detectable difference is {jev_detect} points, and one point needs about {jev_one} examples.</p></div></div>
   </div>
 </section>
@@ -221,6 +246,20 @@ def test_refund(case): ...</pre>
     <div><h3>Is version B really better?</h3>{diff_svg}<p class="meta">Paired difference with its 95% interval. The gain in exact match is not established; the rise in task errors is.</p></div>
     <div><h3>Can this judge be trusted?</h3>{kappa_svg}<p class="meta">Agreement (kappa) of Phoenix's evaluators with their own benchmark labels, judged by Codex. Faithfulness cannot clear the bar on 16 cases.</p></div>
   </div>
+</section>
+
+<section>
+  <div class="eyebrow">Inside Phoenix</div>
+  <h2>The same evidence on Phoenix's own compare page</h2>
+  <p>A working branch of Phoenix: one GraphQL field and one line under each compare value, with the two bug fixes. Under Phoenix's "0.96 +14.49%" it now says the gain is not detectable and how many examples would tell. The cost cards read <code>--</code>. Tested on SQLite and Postgres; <a href="{repo}/blob/main/upstream/04-phoenix-with-evidence-branch.patch">the patch</a> applies to main.</p>
+  <figure><img src="data:image/jpeg;base64,{shot_after}" alt="Phoenix compare page on the branch: under 0.96 +14.49% the line reads +0.042 [+0.008, +0.083] not detectable, about 186 examples to tell; under 0.86 +2.97% it reads +0.025 [+0.000, +0.058] not detectable, about 312 examples to tell."></figure>
+</section>
+
+<section>
+  <div class="eyebrow">For online evals</div>
+  <h2>What humans would say, from a judge and a few labels</h2>
+  <p>An online judge scores every trace; humans label a few. <code>plan-labels</code> picks which spans to label (more often where the judge's runs disagree) and puts them in a Phoenix dataset linked to the spans; <code>corrected-rate</code> combines the labels with the judge. In simulation, 80 planned labels give the interval that {ppi80} random labels would, and 160 the one that {ppi160} would; coverage stayed at or above {ppi_cov}. On 5,000 spans in a live Phoenix, the judge alone said {sc_judge}; the corrected rate was {sc_est} [{sc_lo}, {sc_hi}] and the truth {sc_truth}. Comparing two 6,000-run experiments took {sc_compare} seconds.</p>
+  <p>End to end, with Phoenix's own conciseness evaluator as the online judge and reviews entered in Phoenix's UI: the judge was <strong>not trustworthy</strong> (kappa {e2e_kappa} [{e2e_klo}, {e2e_khi}] on {e2e_n} reviewed spans), calling direct answers verbose; it put the concise rate at {e2e_judge} where the corrected estimate was {e2e_est}. The reviews were entered by us as a stand-in reviewer: this tests the workflow, not users' opinions.</p>
 </section>
 
 <section>

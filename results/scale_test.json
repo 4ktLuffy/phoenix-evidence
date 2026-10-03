@@ -1,0 +1,95 @@
+{
+ "run_base_seconds": 121.4,
+ "run_candidate_seconds": 118.9,
+ "compare_seconds": 5.5,
+ "compare_rows": [
+  {
+   "metric": "correct",
+   "base": 0.815,
+   "candidate": 0.8266666666666667,
+   "difference": 0.011666666666666667,
+   "interval": [
+    0.008,
+    0.015666666666666666
+   ],
+   "p": 4.999750012499375e-05,
+   "verdict": "better",
+   "examples": 3000,
+   "missing_base": 0,
+   "missing_candidate": 0,
+   "detectable": 0.00552262971241947,
+   "needed_for_observed": 671,
+   "notes": []
+  },
+  {
+   "metric": "short",
+   "base": 1.0,
+   "candidate": 1.0,
+   "difference": 0.0,
+   "interval": [
+    0.0,
+    0.0
+   ],
+   "p": 1.0,
+   "verdict": "no detectable difference",
+   "examples": 3000,
+   "missing_base": 0,
+   "missing_candidate": 0,
+   "detectable": null,
+   "needed_for_observed": null,
+   "notes": []
+  },
+  {
+   "metric": "task_error",
+   "base": 0.0,
+   "candidate": 0.0,
+   "difference": 0.0,
+   "interval": [
+    0.0,
+    0.0
+   ],
+   "p": 1.0,
+   "verdict": "no detectable difference",
+   "examples": 3000,
+   "missing_base": 0,
+   "missing_candidate": 0,
+   "detectable": null,
+   "needed_for_observed": null,
+   "notes": []
+  }
+ ],
+ "compare_improvements": [
+  "correct"
+ ],
+ "log_judge_annotations_seconds": 8.2,
+ "true_human_pass_rate": 0.7446,
+ "plan_seconds": 1.1,
+ "plan_chosen": 155,
+ "plan_unsure_spans": 317,
+ "corrected_seconds": 0.8,
+ "corrected": {
+  "estimate": 0.7435,
+  "interval": [
+   0.6735467673752026,
+   0.8134532326247975
+  ],
+  "judge_rate": 0.6996,
+  "human_only": [
+   0.634218533362642,
+   0.9578881333040246
+  ],
+  "labelled": 155,
+  "spans": 5000
+ },
+ "corrected_covers_truth": true,
+ "certify_feedback_seconds": 0.9,
+ "certify_feedback": {
+  "verdict": "NOT_ENOUGH_EVIDENCE",
+  "paired_spans": 155,
+  "kappa": 0.715266363724258,
+  "kappa_interval": [
+   0.5707619383858252,
+   0.8291069459757443
+  ]
+ }
+}

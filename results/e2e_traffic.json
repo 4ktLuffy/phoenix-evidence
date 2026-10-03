@@ -1,0 +1,205 @@
+{
+ "generator": "codex:gpt-5.6-luna@low",
+ "exchanges": [
+  {
+   "span_id": "06dc2dfe446140b5",
+   "question": "Why aren't my notes syncing between my phone and laptop?",
+   "reply": "Please confirm both devices are online and signed in to the same Quill Notes account. Then open Settings > Sync and tap Sync now. If it still fails, update the app on both devices."
+  },
+  {
+   "span_id": "1a8ffb2973be42a9",
+   "question": "Can I export a notebook as a PDF?",
+   "reply": "Yes. Open the notebook, select the three-dot menu, choose Export, and select PDF. You can export the whole notebook or only selected notes."
+  },
+  {
+   "span_id": "255c2040886d44f4",
+   "question": "How do I share a note with someone?",
+   "reply": "Hi! Open the note, tap Share, enter the person's email address, and choose Viewer or Editor access. They'll receive an invitation by email. If you only need to send a copy, choose Export instead. I hope that helps!"
+  },
+  {
+   "span_id": "7b39cba979504d05",
+   "question": "I was charged twice this month. What should I do?",
+   "reply": "I'm sorry about the duplicate charge. Please check whether one charge is from the App Store or Google Play and the other is from Quill Notes directly. Send us the two receipt numbers, and we'll investigate and refund any confirmed duplicate payment."
+  },
+  {
+   "span_id": "f68fa8f7ada945f4",
+   "question": "Does Quill Notes work without an internet connection?",
+   "reply": "Yes. Your recently opened notes and any notes saved for offline use remain available without internet. Changes will upload automatically when you reconnect."
+  },
+  {
+   "span_id": "b9f38be4f92f4620",
+   "question": "How do I add tags to a note?",
+   "reply": "Open the note, tap the tag icon, select an existing tag, or type a new tag name and press Enter. You can add multiple tags to the same note."
+  },
+  {
+   "span_id": "72cd3a43683041e2",
+   "question": "Search isn't finding words inside my handwritten notes.",
+   "reply": "Handwritten text is searchable only after handwriting recognition has finished processing. Keep the note open while connected to Wi-Fi for a few moments, then try searching again. Recognition may be limited for unclear writing or unsupported languages."
+  },
+  {
+   "span_id": "76ed703ce09f48e6",
+   "question": "Can I permanently delete my account?",
+   "reply": "Yes. Go to Settings > Account > Delete account and follow the confirmation steps. This permanently removes your notes, attachments, and subscription data, so please export anything you want to keep first."
+  },
+  {
+   "span_id": "76eef2f28eb84164",
+   "question": "What file types can I attach to a note?",
+   "reply": "You can attach images, PDFs, audio files, and common document formats. Individual attachments are limited to 100 MB on the Standard plan and 500 MB on Premium."
+  },
+  {
+   "span_id": "94bcffd86c4f46a6",
+   "question": "Is there a keyboard shortcut for creating a new note?",
+   "reply": "On desktop, press Ctrl+N on Windows or Command+N on macOS to create a new note. Pressing Ctrl/Command+Shift+F focuses search."
+  },
+  {
+   "span_id": "0ac8987e9736420d",
+   "question": "My shared note says read-only even though I gave edit access.",
+   "reply": "Sorry you're running into that. Please verify that the collaborator accepted the latest invitation using the same email address you shared with. You can also open Share settings, remove their access, and invite them again as an Editor."
+  },
+  {
+   "span_id": "bb636de7c76d4ddf",
+   "question": "How can I restore a note I deleted yesterday?",
+   "reply": "Open Trash from the sidebar, select the note, and choose Restore. Deleted notes stay in Trash for 30 days before they are permanently removed."
+  },
+  {
+   "span_id": "cc8500b2f41545fd",
+   "question": "Can I change the email address on my account?",
+   "reply": "Go to Settings > Account > Email, enter the new address, and confirm it using the verification message. You may need to enter your password before the change is saved."
+  },
+  {
+   "span_id": "6fec4dc27bf44624",
+   "question": "Why did my offline edits disappear?",
+   "reply": "I'm sorry\u2014the edits may not have finished uploading before the app was closed. Reopen Quill Notes while connected, check the note's Version history, and look for an unsynced copy on the device where you made the changes. Please avoid reinstalling the app until we've checked for recovery options."
+  },
+  {
+   "span_id": "0c9df944669e4549",
+   "question": "How do I cancel my Premium subscription?",
+   "reply": "If you subscribed through Apple or Google, cancel it in your device's subscription settings. If you subscribed on our website, go to Settings > Billing > Manage subscription and select Cancel. Your Premium features remain active until the current billing period ends."
+  },
+  {
+   "span_id": "462fbc800c814f6a",
+   "question": "Can I sort notes by last edited date?",
+   "reply": "Yes. In any notebook or search results, open the Sort menu and choose Last edited, Created, or Title. The selected order is saved for that view."
+  },
+  {
+   "span_id": "0558e8693bdd4a7c",
+   "question": "The app keeps asking me to log in again.",
+   "reply": "Please try signing out once, restarting your device, and signing back in. If the issue continues, update Quill Notes and check that your device's date and time are set automatically. Repeated sign-outs can also happen if your organization's security policy expires sessions."
+  },
+  {
+   "span_id": "a93e0f2f74a341cc",
+   "question": "How do I share an entire notebook?",
+   "reply": "Open the notebook menu, choose Share notebook, add the recipient, and select their permission level. Sharing a notebook gives access to its current notes and, depending on the role, any new notes added later."
+  },
+  {
+   "span_id": "b9325fd247554a73",
+   "question": "Can I record audio directly in a note?",
+   "reply": "Yes. Open a note and tap the microphone button. Tap Stop when finished; the recording is saved as an attachment in that note."
+  },
+  {
+   "span_id": "05b111f899fd4035",
+   "question": "Why is my exported Word document missing images?",
+   "reply": "Quill Notes exports images that are fully uploaded before the export begins. Please reconnect to the internet, wait for the upload indicators to finish, and export the note again. Large or unsupported image formats may still be omitted, so PNG or JPEG is recommended."
+  },
+  {
+   "span_id": "bad5616eb9f34b3a",
+   "question": "Does Quill Notes support dark mode?",
+   "reply": "It does. Go to Settings > Appearance and choose Light, Dark, or Follow system settings."
+  },
+  {
+   "span_id": "fc45e6bb365b4839",
+   "question": "How do I rename a notebook?",
+   "reply": "Right-click the notebook in the sidebar, or tap its three-dot menu on mobile, then choose Rename."
+  },
+  {
+   "span_id": "1af4626361054076",
+   "question": "Can I lock a note with a password?",
+   "reply": "Yes, on Premium plans. Open the note menu, choose Lock note, and set a passcode. Locked notes may still be visible in search results, but their contents require authentication."
+  },
+  {
+   "span_id": "d824ebce6b384b83",
+   "question": "My tags disappeared after I moved notes to another notebook.",
+   "reply": "Moving a note should not remove its tags. Please check the note's tag panel and make sure you're viewing all tags rather than only notebook-specific tags. If the tags are still missing, sign out and back in after syncing completes."
+  },
+  {
+   "span_id": "3410e259ab28454a",
+   "question": "How do I print a note?",
+   "reply": "On desktop, open the note and select File > Print or press Ctrl+P/Command+P. On mobile, use Share > Print if your device supports printing."
+  },
+  {
+   "span_id": "f9ff4fed8a204e9e",
+   "question": "Can I use Quill Notes on two phones?",
+   "reply": "Yes. Install Quill Notes on both phones and sign in with the same account. Your synced notes will appear on each device, subject to your plan's device limit."
+  },
+  {
+   "span_id": "1990a1fd910841a2",
+   "question": "I forgot my password and can't get in.",
+   "reply": "No problem\u2014select Forgot password on the sign-in screen and enter your account email. We'll send a reset link. If you don't see it, check your spam folder and confirm that you're using the email associated with Quill Notes."
+  },
+  {
+   "span_id": "6fad04e5e50a4f02",
+   "question": "Is there a limit to how many notes I can create?",
+   "reply": "The Free plan includes up to 500 notes. Premium plans allow unlimited notes, subject to reasonable storage and file-size limits."
+  },
+  {
+   "span_id": "b2f11e0fe2ac48a3",
+   "question": "Can I recover an older version of a note?",
+   "reply": "Premium users can open the note menu and select Version history. Choose a timestamp to review or restore that version. Restoring creates a new current version, so your existing history is not erased."
+  },
+  {
+   "span_id": "84bc58dc2a8b486c",
+   "question": "Why won't my PDF attachment open?",
+   "reply": "Please make sure the file finished uploading and that your device has a PDF viewer installed. If it still will not open, download the attachment and try another viewer. Re-uploading a smaller copy can help if the original file is damaged."
+  },
+  {
+   "span_id": "1cefddaa03204367",
+   "question": "How do I change the app language?",
+   "reply": "Quill Notes follows your device language by default. On supported platforms, open Settings > Language and choose a language manually; restart the app afterward if the interface does not update immediately."
+  },
+  {
+   "span_id": "b74bd02f3c0a4e90",
+   "question": "Can I merge two notes?",
+   "reply": "Yes. Open one note, choose More > Merge, select the second note, and review the combined content before saving. Attachments and formatting may be placed at the end of the merged note."
+  },
+  {
+   "span_id": "ae7812d193c6446b",
+   "question": "My subscription renewed even though I thought I canceled it.",
+   "reply": "I'm sorry for the surprise renewal. Cancellation must be completed before the renewal date, and deleting the app does not cancel a subscription. Please check your Apple, Google, or Quill Notes billing account for the cancellation status, then send us the receipt if you believe the renewal was charged in error."
+  },
+  {
+   "span_id": "a6c465f0e2e74aea",
+   "question": "How do I make a note available offline?",
+   "reply": "Open the note's menu and turn on Available offline. For an entire notebook, use the notebook menu and select Make available offline. The app will download the content when connected."
+  },
+  {
+   "span_id": "a1d56f9873494881",
+   "question": "Can I change who owns a shared notebook?",
+   "reply": "Ownership transfers are available from the notebook's Share settings. The current owner can choose Transfer ownership, select an eligible collaborator, and confirm the transfer. Some managed workspaces may restrict this option."
+  },
+  {
+   "span_id": "c37e63260ff6408b",
+   "question": "Why are my search results incomplete?",
+   "reply": "Search indexes new or recently edited notes in the background. Wait a minute after syncing, then retry the search. You can narrow results with filters such as notebook, tag, date, or attachment type."
+  },
+  {
+   "span_id": "4ebc41f54455414c",
+   "question": "How do I turn off email notifications for shared notes?",
+   "reply": "Go to Settings > Notifications and disable collaboration emails. You can also adjust notifications for individual notebooks from their Share settings."
+  },
+  {
+   "span_id": "ff94790c23c34c73",
+   "question": "Can I use a stylus with Quill Notes?",
+   "reply": "Yes, stylus input is supported on compatible tablets and phones. Open a note and choose Pen or Drawing mode. Pressure sensitivity and palm rejection depend on your device and operating system."
+  },
+  {
+   "span_id": "515a695ffd85402a",
+   "question": "I need an invoice for my subscription.",
+   "reply": "You can download invoices from Settings > Billing > Payment history. If you subscribed through Apple or Google, invoices are provided by that store instead. Please contact us if a business invoice needs a different billing name or address."
+  },
+  {
+   "span_id": "8e3fc1abbc4b4dd3",
+   "question": "What is the shortcut for searching all my notes?",
+   "reply": "Press Ctrl+Shift+F on Windows or Command+Shift+F on macOS. On mobile, tap the magnifying-glass icon at the top of the notes list."
+  }
+ ]
+}

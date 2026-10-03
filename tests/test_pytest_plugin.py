@@ -146,3 +146,26 @@ def test_xdist_workers_are_decided_together(pytester):
     decision = json.loads(report.read_text())['test_suite']
     assert decision['examples'] == 40 and decision['verdict'] == 'FAIL'
     assert result.ret != 0
+
+
+def test_a_crashed_xdist_worker_marks_the_decision_incomplete(pytester):
+    pytest.importorskip('xdist')
+    pytester.makepyfile(
+        test_suite="""
+import os
+import pytest
+
+@pytest.mark.evidence(threshold=0.8)
+@pytest.mark.parametrize('i', range(40))
+def test_case(i):
+    if i == 15:
+        os._exit(17)
+    assert False
+"""
+    )
+    report = pytester.path / 'evidence.json'
+    result = pytester.runpytest_subprocess('-n', '2', '--evidence-report', str(report))
+    data = json.loads(report.read_text())
+    assert data['_incomplete']['lost_test_reports']
+    assert data['test_suite']['examples'] == 39  # every outcome that finished arrived
+    assert result.ret != 0

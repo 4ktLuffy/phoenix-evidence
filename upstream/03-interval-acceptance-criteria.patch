@@ -1,0 +1,436 @@
+diff --git a/js/packages/phoenix-client/src/testing/acceptance.ts b/js/packages/phoenix-client/src/testing/acceptance.ts
+index 89cb8e2..7ad7baa 100644
+--- a/js/packages/phoenix-client/src/testing/acceptance.ts
++++ b/js/packages/phoenix-client/src/testing/acceptance.ts
+@@ -59,6 +59,13 @@ export function formatAcceptanceResult(result: AcceptanceResult): string {
+     requirement = `pass rate >= ${result.minPassRate.toFixed(3)}`;
+   }
+   const reason = result.failureReason ? ` - ${result.failureReason}` : "";
++  if (result.valueInterval && result.verdict) {
++    const [low, high] = result.valueInterval;
++    const missing = result.missingCount
++      ? `, ${result.missingCount} unscored run${result.missingCount > 1 ? "s" : ""} counted as failing`
++      : "";
++    return `${status} ${result.annotationName} ${result.metric} ${value} [${low.toFixed(3)}, ${high.toFixed(3)}] ${result.verdict} (need ${requirement} on the interval; ${result.exampleCount} examples, ${result.sampleCount} ${sampleLabel}${missing})${reason}`;
++  }
+   return `${status} ${result.annotationName} ${result.metric} ${value} (need ${requirement}; ${result.sampleCount} ${sampleLabel})${reason}`;
+ }
+ 
+@@ -69,6 +76,9 @@ function evaluateAcceptanceCriterion({
+   criterion: AcceptanceCriterion;
+   results: readonly TestResult[];
+ }): AcceptanceResult {
++  if (criterion.interval) {
++    return evaluateOnInterval({ criterion, results });
++  }
+   const annotations = collectAnnotations({ criterion, results });
+ 
+   if (criterion.metric === "average") {
+@@ -119,6 +129,180 @@ function evaluateAcceptanceCriterion({
+   };
+ }
+ 
++/**
++ * Decide a criterion on an exact (Clopper-Pearson) interval. Each test counts
++ * once, by the mean of its runs' outcomes, so repetitions do not shrink the
++ * interval; a run without the annotation scores the worst outcome (0, or 1
++ * when minimizing). The interval is taken on
++ * the number of examples, with the summed outcomes rounded down for the lower
++ * bound and up for the upper, which keeps it conservative for fractional
++ * scores.
++ */
++function evaluateOnInterval({
++  criterion,
++  results,
++}: {
++  criterion: AcceptanceCriterion;
++  results: readonly TestResult[];
++}): AcceptanceResult {
++  const confidence = criterion.interval?.confidence ?? 0.95;
++  const alpha = 1 - confidence;
++  const byTest = new Map<string, number[]>();
++  let missingCount = 0;
++  for (const result of results) {
++    if (result.status === "skipped") {
++      continue;
++    }
++    const annotation = findLastAnnotation({
++      annotations: result.annotations,
++      annotationName: criterion.annotationName,
++    });
++    // A run that never scored counts as the worst outcome in the criterion's direction.
++    const worst =
++      criterion.metric === "average" && criterion.direction === "minimize"
++        ? 1
++        : 0;
++    let outcome: number;
++    if (annotation === undefined) {
++      missingCount += 1;
++      outcome = worst;
++    } else if (criterion.metric === "passRate") {
++      outcome = criterion.passFn(annotation) ? 1 : 0;
++    } else {
++      const score = annotation.score;
++      if (!isValidScore(score)) {
++        missingCount += 1;
++        outcome = worst;
++      } else {
++        outcome = typeof score === "boolean" ? Number(score) : score;
++        if (outcome < 0 || outcome > 1) {
++          return {
++            ...criterion,
++            value: null,
++            sampleCount: 0,
++            passed: false,
++            failureReason: "interval criteria need scores between 0 and 1",
++          };
++        }
++      }
++    }
++    // Repetitions of one test share an example: the runner names them `<name> [rep i/N]`.
++    const exampleKey =
++      result.exampleId ?? result.testName.replace(/ \[rep \d+\/\d+\]$/, "");
++    const outcomes = byTest.get(exampleKey) ?? [];
++    outcomes.push(outcome);
++    byTest.set(exampleKey, outcomes);
++  }
++  const shares = [...byTest.values()].map(calculateAverage);
++  const exampleCount = shares.length;
++  if (exampleCount === 0) {
++    return {
++      ...criterion,
++      value: null,
++      sampleCount: 0,
++      passed: false,
++      failureReason: "no runs to decide on",
++    };
++  }
++  const total = shares.reduce((sum, share) => sum + share, 0);
++  const valueInterval: [number, number] = [
++    clopperPearson(Math.floor(total + 1e-9), exampleCount, alpha)[0],
++    clopperPearson(Math.ceil(total - 1e-9), exampleCount, alpha)[1],
++  ];
++  const [low, high] = valueInterval;
++  const bar =
++    criterion.metric === "passRate"
++      ? criterion.minPassRate
++      : criterion.threshold;
++  const minimize =
++    criterion.metric === "average" && criterion.direction === "minimize";
++  let verdict: "pass" | "fail" | "undecided";
++  if (minimize) {
++    verdict = high <= bar ? "pass" : low > bar ? "fail" : "undecided";
++  } else {
++    verdict = low >= bar ? "pass" : high < bar ? "fail" : "undecided";
++  }
++  const passesWhenUndecided = criterion.interval?.whenUndecided === "pass";
++  return {
++    ...criterion,
++    value: total / exampleCount,
++    sampleCount: [...byTest.values()].reduce((n, runs) => n + runs.length, 0),
++    passed:
++      verdict === "pass" || (verdict === "undecided" && passesWhenUndecided),
++    valueInterval,
++    verdict,
++    exampleCount,
++    missingCount,
++    failureReason:
++      verdict === "undecided" && !passesWhenUndecided
++        ? `the interval contains the bar: ${exampleCount} examples cannot decide`
++        : undefined,
++  };
++}
++
++/** P(X <= k) for X ~ Binomial(n, p), summed in log space. */
++function binomialCdf(k: number, n: number, p: number): number {
++  if (k < 0) return 0;
++  if (k >= n || p <= 0) return 1;
++  if (p >= 1) return 0;
++  const logP = Math.log(p);
++  const logQ = Math.log1p(-p);
++  const logN = logGamma(n + 1);
++  const terms: number[] = [];
++  for (let i = 0; i <= k; i++) {
++    terms.push(
++      logN - logGamma(i + 1) - logGamma(n - i + 1) + i * logP + (n - i) * logQ
++    );
++  }
++  const top = Math.max(...terms);
++  return Math.min(
++    1,
++    Math.exp(top) * terms.reduce((sum, t) => sum + Math.exp(t - top), 0)
++  );
++}
++
++/** Lanczos approximation of log Γ(x), accurate to ~1e-13 for x > 0. */
++function logGamma(x: number): number {
++  const g = 7;
++  const c = [
++    0.99999999999980993, 676.5203681218851, -1259.1392167224028,
++    771.32342877765313, -176.61502916214059, 12.507343278686905,
++    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
++  ];
++  if (x < 0.5) {
++    return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
++  }
++  const z = x - 1;
++  let a = c[0]!;
++  const t = z + g + 0.5;
++  for (let i = 1; i < g + 2; i++) {
++    a += c[i]! / (z + i);
++  }
++  return (
++    0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(a)
++  );
++}
++
++/** Exact two-sided binomial interval for `successes` out of `trials`. */
++function clopperPearson(
++  successes: number,
++  trials: number,
++  alpha: number
++): [number, number] {
++  const upper = (k: number): number => {
++    if (k >= trials) return 1;
++    let low = k / trials;
++    let high = 1;
++    for (let i = 0; i < 60; i++) {
++      const mid = (low + high) / 2;
++      if (binomialCdf(k, trials, mid) > alpha / 2) low = mid;
++      else high = mid;
++    }
++    return high;
++  };
++  return [1 - upper(trials - successes), upper(successes)];
++}
++
+ /** Whether `value` clears `bar` in the given optimization direction. */
+ function meetsBar(
+   value: number,
+diff --git a/js/packages/phoenix-client/src/testing/types.ts b/js/packages/phoenix-client/src/testing/types.ts
+index c919ef5..12a8c35 100644
+--- a/js/packages/phoenix-client/src/testing/types.ts
++++ b/js/packages/phoenix-client/src/testing/types.ts
+@@ -141,6 +141,26 @@ export type OptimizationDirection = "maximize" | "minimize";
+ export interface AcceptanceCriterionBase {
+   /** Annotation name to aggregate across completed test runs. */
+   annotationName: string;
++  /**
++   * Decide on an exact confidence interval instead of the point value. When
++   * set, the suite passes only when the interval clears the bar, fails when it
++   * lies on the wrong side, and is otherwise undecided (see
++   * {@link AcceptanceInterval.whenUndecided}). Repetitions of one test count as
++   * one example, and a run that never logged the annotation counts as a
++   * failure rather than being left out. Scores must lie between `0` and `1`.
++   */
++  interval?: AcceptanceInterval;
++}
++
++/** Options for deciding an {@link AcceptanceCriterion} on an interval. */
++export interface AcceptanceInterval {
++  /** Two-sided confidence of the interval; defaults to `0.95`. */
++  confidence?: number;
++  /**
++   * What an undecided result (the interval contains the bar) does to the
++   * suite; defaults to `"fail"`.
++   */
++  whenUndecided?: "fail" | "pass";
+ }
+ 
+ /**
+@@ -217,6 +237,14 @@ export interface AcceptanceResultFields {
+   passed: boolean;
+   /** Human-readable failure reason for invalid or empty aggregates. */
+   failureReason?: string;
++  /** With {@link AcceptanceCriterionBase.interval}: the exact interval on the value. */
++  valueInterval?: [number, number];
++  /** With an interval: whether it cleared the bar, missed it, or contains it. */
++  verdict?: "pass" | "fail" | "undecided";
++  /** With an interval: distinct tests (examples); repetitions count once. */
++  exampleCount?: number;
++  /** With an interval: runs that never logged the annotation, counted as failures. */
++  missingCount?: number;
+ }
+ 
+ /** Computed result for one aggregate acceptance rule. */
+diff --git a/js/packages/phoenix-client/test/testing/acceptance.test.ts b/js/packages/phoenix-client/test/testing/acceptance.test.ts
+index 3d78dd9..c7a4c67 100644
+--- a/js/packages/phoenix-client/test/testing/acceptance.test.ts
++++ b/js/packages/phoenix-client/test/testing/acceptance.test.ts
+@@ -217,3 +217,176 @@ function createResult(annotations: Annotation[]): TestResult {
+     durationMs: 1,
+   };
+ }
++
++describe("acceptance criteria on an interval", () => {
++  const scored = (count: number, score: boolean, offset = 0): TestResult[] =>
++    Array.from({ length: count }, (_, index) =>
++      createCase(`case-${offset + index}`, [{ name: "correct", score }])
++    );
++
++  it("is undecided when a small suite clears the bar only on its point value", () => {
++    // 13 of 16 correct: 0.81 >= 0.7, but the exact interval is [0.544, 0.960].
++    const results = [...scored(13, true), ...scored(3, false, 13)];
++    const [strict] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "average",
++          threshold: 0.7,
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(strict).toMatchObject({
++      value: expect.closeTo(0.8125, 4),
++      verdict: "undecided",
++      exampleCount: 16,
++      passed: false,
++    });
++    expect(strict!.valueInterval![0]).toBeCloseTo(0.5435, 4);
++    expect(strict!.valueInterval![1]).toBeCloseTo(0.9595, 4);
++
++    const [lenient] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "average",
++          threshold: 0.7,
++          interval: { whenUndecided: "pass" },
++        },
++      ],
++      results,
++    });
++    expect(lenient).toMatchObject({ verdict: "undecided", passed: true });
++  });
++
++  it("counts runs that never logged the annotation as failures", () => {
++    // #15425: 3 runs score 1 and 7 error before logging; dropping them reads 100%.
++    const results = [
++      ...scored(3, true),
++      ...Array.from({ length: 7 }, (_, index) => ({
++        ...createCase(`crash-${index}`, []),
++        status: "failed" as const,
++      })),
++    ];
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "passRate",
++          passFn: (annotation) => annotation.score === true,
++          minPassRate: 0.9,
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({
++      value: expect.closeTo(0.3, 6),
++      missingCount: 7,
++      verdict: "fail",
++      passed: false,
++    });
++  });
++
++  it("passes when the interval clears the bar", () => {
++    const results = [...scored(98, true), ...scored(2, false, 98)];
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "average",
++          threshold: 0.8,
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({
++      verdict: "pass",
++      passed: true,
++      exampleCount: 100,
++    });
++  });
++
++  it("counts repetitions of one test once, as the runner names them", () => {
++    // runner.ts names repeated runs `${uniqueName} [rep ${rep}/${repetitions}]`.
++    const results = Array.from({ length: 30 }, (_, index) => ({
++      ...createCase(`case-${index % 10} [rep ${Math.floor(index / 10) + 1}/3]`, [
++        { name: "correct", score: true },
++      ]),
++      repetitionNumber: Math.floor(index / 10) + 1,
++      repetitions: 3,
++    }));
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        { annotationName: "correct", metric: "average", threshold: 0.8, interval: {} },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({ exampleCount: 10, sampleCount: 30, verdict: "undecided" });
++    expect(result!.valueInterval![0]).toBeCloseTo(0.6915, 4); // 10/10, not 30/30
++  });
++
++  it("counts a missing score as the worst outcome when minimizing", () => {
++    const results = Array.from({ length: 60 }, (_, index) => createCase(`case-${index}`, []));
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "error",
++          metric: "average",
++          threshold: 0.1,
++          direction: "minimize",
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({ verdict: "fail", passed: false, missingCount: 60 });
++  });
++
++  it("decides a minimized metric on the upper bound", () => {
++    const results = Array.from({ length: 60 }, (_, index) =>
++      createCase(`case-${index}`, [{ name: "error", score: 0 }])
++    );
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "error",
++          metric: "average",
++          threshold: 0.1,
++          direction: "minimize",
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({ verdict: "pass", passed: true });
++    expect(formatAcceptanceResult(result!)).toContain(
++      "on the interval; 60 examples"
++    );
++  });
++
++  it("refuses scores outside 0 to 1", () => {
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "tokens",
++          metric: "average",
++          threshold: 100,
++          interval: {},
++        },
++      ],
++      results: [createCase("case-0", [{ name: "tokens", score: 250 }])],
++    });
++    expect(result).toMatchObject({
++      passed: false,
++      failureReason: expect.stringContaining("between 0 and 1"),
++    });
++  });
++});
++
++function createCase(testName: string, annotations: Annotation[]): TestResult {
++  return { ...createResult(annotations), testName };
++}

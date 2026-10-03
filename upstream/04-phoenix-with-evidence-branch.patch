@@ -1,0 +1,2338 @@
+diff --git a/js/app/schema.graphql b/js/app/schema.graphql
+index a94f8bd..842c0f1 100644
+--- a/js/app/schema.graphql
++++ b/js/app/schema.graphql
+@@ -1955,6 +1955,57 @@ type Experiment implements Node {
+   job: ExperimentJob
+ }
+ 
++"""
++Whether a compare experiment's annotation score differs from the base experiment's, paired on the dataset examples both ran, with a 95% interval on the difference.
++"""
++type ExperimentAnnotationEvidence {
++  annotationName: String!
++  compareExperimentId: ID!
++
++  """Mean base score on the shared examples, failed runs included."""
++  baseMean: Float!
++
++  """Mean compare score on the shared examples, failed runs included."""
++  compareMean: Float!
++
++  """Compare mean minus base mean."""
++  difference: Float!
++
++  """Lower end of a 95% bootstrap interval."""
++  lower: Float!
++
++  """Upper end of a 95% bootstrap interval."""
++  upper: Float!
++
++  """
++  Two-sided sign-flip test of no difference (exact up to 16 differing examples).
++  """
++  pValue: Float!
++
++  """
++  BETTER, WORSE or NO_DETECTABLE_DIFFERENCE, after Holm correction across the annotations compared for this experiment.
++  """
++  verdict: String!
++
++  """Dataset examples both experiments ran."""
++  examples: Int!
++
++  """
++  Base runs without a score (failed or unannotated), scored as the worst.
++  """
++  missingBase: Int!
++
++  """
++  Compare runs without a score (failed or unannotated), scored as the worst.
++  """
++  missingCompare: Int!
++
++  """
++  Examples needed to detect the observed difference at 80% power, at the observed share of examples that changed; null when there is no difference.
++  """
++  examplesNeeded: Int
++}
++
+ type ExperimentAnnotationSummary {
+   annotationName: String!
+   minScore: Float
+@@ -3946,6 +3997,7 @@ type Query {
+   datasets(first: Int = 50, last: Int, after: String, before: String, sort: DatasetSort, filter: DatasetFilter): DatasetConnection!
+   datasetsLastUpdatedAt: DateTime
+   compareExperiments(baseExperimentId: ID!, compareExperimentIds: [ID!]!, first: Int = 50, after: String, filterCondition: String): ExperimentComparisonConnection!
++  experimentAnnotationEvidence(baseExperimentId: ID!, compareExperimentIds: [ID!]!): [ExperimentAnnotationEvidence!]!
+   experimentRunMetricComparisons(baseExperimentId: ID!, compareExperimentIds: [ID!]!): ExperimentRunMetricComparisons!
+   validateExperimentRunFilterCondition(condition: String!, experimentIds: [ID!]!): ValidationResult!
+   node(id: ID!): Node!
+diff --git a/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx b/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx
+index 6fcee87..99c094a 100644
+--- a/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx
++++ b/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx
+@@ -33,6 +33,11 @@ import type {
+   ExperimentCompareMetricsPage_experiments$key,
+ } from "./__generated__/ExperimentCompareMetricsPage_experiments.graphql";
+ import type { ExperimentComparePageQueriesCompareMetricsQuery as ExperimentComparePageQueriesCompareMetricsQueryType } from "./__generated__/ExperimentComparePageQueriesCompareMetricsQuery.graphql";
++import { evidenceTitle, formatEvidence, formatPercentageDelta } from "./utils";
++
++const evidenceLineCSS = css`
++  padding-left: var(--global-dimension-size-200);
++`;
+ 
+ const thumbIconCSS = css`
+   font-size: var(--global-text-font-size-l);
+@@ -52,10 +57,22 @@ const metricCardCSS = css`
+ 
+ type MetricValue = number | null | undefined;
+ 
++type AnnotationEvidence = {
++  difference: number;
++  lower: number;
++  upper: number;
++  verdict: string;
++  examples: number;
++  examplesNeeded: number | null;
++  missingCompare: number;
++};
++
+ type CompareExperiment = {
+   id: string;
+   value: MetricValue;
+   color: string;
++  /** Paired evidence on the difference from the base experiment, for annotation metrics. */
++  evidence?: AnnotationEvidence;
+ };
+ 
+ type Experiment = NonNullable<
+@@ -159,6 +176,20 @@ export function ExperimentCompareMetricsPage({
+             numRunsEqual
+           }
+         }
++        experimentAnnotationEvidence(
++          baseExperimentId: $baseExperimentId
++          compareExperimentIds: $compareExperimentIds
++        ) @include(if: $hasCompareExperiments) {
++          annotationName
++          compareExperimentId
++          difference
++          lower
++          upper
++          verdict
++          examples
++          examplesNeeded
++          missingCompare
++        }
+       }
+     `,
+     preloadedData
+@@ -398,10 +429,16 @@ export function ExperimentCompareMetricsPage({
+                 compareExperimentId
+               ];
+           }
++          const evidence = data.experimentAnnotationEvidence?.find(
++            (item) =>
++              item.annotationName === annotationName &&
++              item.compareExperimentId === compareExperimentId
++          );
+           annotationMetricComparisons.push({
+             id: compareExperimentId,
+             value: compareExperimentMeanScore,
+             color: compareExperimentColor,
++            evidence: evidence ?? undefined,
+           });
+         });
+         annotationMetrics.push({
+@@ -556,6 +593,7 @@ function MetricCard({
+               baseExperimentValue={baseExperimentValue}
+               color={experiment.color}
+               formatter={formatter}
++              evidence={experiment.evidence}
+             />
+           ))}
+         </Flex>
+@@ -588,43 +626,58 @@ function CompareExperimentMetric({
+   baseExperimentValue,
+   color,
+   formatter = numberFormatter,
++  evidence,
+ }: {
+   value: MetricValue;
+   baseExperimentValue: MetricValue;
+   color: string;
+   formatter?: (value: MetricValue) => string;
++  evidence?: AnnotationEvidence;
+ }) {
+   const valueText = useMemo(() => formatter(value), [formatter, value]);
+-  const percentageDeltaText = useMemo(() => {
+-    let percentageDeltaText: string = "+0%";
+-    if (baseExperimentValue == null || value == null) {
+-      return percentageDeltaText;
+-    }
+-    const delta = value - baseExperimentValue;
+-    const sign = delta >= 0 ? "+" : "-";
+-    if (baseExperimentValue !== 0) {
+-      const absolutePercentageDelta =
+-        Math.abs(delta / baseExperimentValue) * 100;
+-      percentageDeltaText = `${sign}${percentFormatter(absolutePercentageDelta)}`;
+-    }
+-    return percentageDeltaText;
+-  }, [baseExperimentValue, value]);
++  const percentageDeltaText = useMemo(
++    () =>
++      formatPercentageDelta({
++        value,
++        baseValue: baseExperimentValue,
++        formatPercent: percentFormatter,
++      }),
++    [baseExperimentValue, value]
++  );
+ 
+   return (
+-    <Flex direction="row" alignItems="center" gap="size-100">
+-      <ColorSwatch color={color} shape="circle" />
+-      <Flex direction="row" alignItems="center" gap="size-50">
+-        <Text size="M" fontFamily="mono">
+-          {valueText}
+-        </Text>
+-        <Text color="text-500" size="S" fontFamily="mono">
+-          {percentageDeltaText}
+-        </Text>
++    <Flex direction="column" gap="size-25">
++      <Flex direction="row" alignItems="center" gap="size-100">
++        <ColorSwatch color={color} shape="circle" />
++        <Flex direction="row" alignItems="center" gap="size-50">
++          <Text size="M" fontFamily="mono">
++            {valueText}
++          </Text>
++          <Text color="text-500" size="S" fontFamily="mono">
++            {percentageDeltaText}
++          </Text>
++        </Flex>
+       </Flex>
++      {evidence && <EvidenceLine evidence={evidence} />}
+     </Flex>
+   );
+ }
+ 
++/**
++ * The paired difference from the base experiment with its 95% interval, and
++ * whether it is shown at all on these examples.
++ */
++function EvidenceLine({ evidence }: { evidence: AnnotationEvidence }) {
++  const { text, color } = formatEvidence(evidence);
++  return (
++    <span css={evidenceLineCSS} title={evidenceTitle(evidence)}>
++      <Text size="XS" fontFamily="mono" color={color}>
++        {text}
++      </Text>
++    </span>
++  );
++}
++
+ function ImprovementAndRegressionCounter({
+   numImprovements,
+   numRegressions,
+diff --git a/js/app/src/pages/experiment/__generated__/ExperimentCompareMetricsPage_experiments.graphql.ts b/js/app/src/pages/experiment/__generated__/ExperimentCompareMetricsPage_experiments.graphql.ts
+index 7859b9e..9a9aa0a 100644
+--- a/js/app/src/pages/experiment/__generated__/ExperimentCompareMetricsPage_experiments.graphql.ts
++++ b/js/app/src/pages/experiment/__generated__/ExperimentCompareMetricsPage_experiments.graphql.ts
+@@ -1,5 +1,5 @@
+ /**
+- * @generated SignedSource<<5dbfbb13cf1e4c0ae9c946e8293b1abc>>
++ * @generated SignedSource<<a47750eeed50e4b78073fa925a179a01>>
+  * @lightSyntaxTransform
+  */
+ 
+@@ -38,6 +38,17 @@ export type ExperimentCompareMetricsPage_experiments$data = {
+       }>;
+     };
+   };
++  readonly experimentAnnotationEvidence?: ReadonlyArray<{
++    readonly annotationName: string;
++    readonly compareExperimentId: string;
++    readonly difference: number;
++    readonly examples: number;
++    readonly examplesNeeded: number | null;
++    readonly lower: number;
++    readonly missingCompare: number;
++    readonly upper: number;
++    readonly verdict: string;
++  }>;
+   readonly experimentRunMetricComparisons?: {
+     readonly completionCost: {
+       readonly numRunsEqual: number;
+@@ -99,7 +110,26 @@ var v0 = [
+     "storageKey": null
+   }
+ ],
+-v1 = [
++v1 = {
++  "alias": null,
++  "args": null,
++  "kind": "ScalarField",
++  "name": "annotationName",
++  "storageKey": null
++},
++v2 = [
++  {
++    "kind": "Variable",
++    "name": "baseExperimentId",
++    "variableName": "baseExperimentId"
++  },
++  {
++    "kind": "Variable",
++    "name": "compareExperimentIds",
++    "variableName": "compareExperimentIds"
++  }
++],
++v3 = [
+   {
+     "alias": null,
+     "args": null,
+@@ -269,13 +299,7 @@ return {
+                           "name": "annotationSummaries",
+                           "plural": true,
+                           "selections": [
+-                            {
+-                              "alias": null,
+-                              "args": null,
+-                              "kind": "ScalarField",
+-                              "name": "annotationName",
+-                              "storageKey": null
+-                            },
++                            (v1/*:: as any*/),
+                             {
+                               "alias": null,
+                               "args": null,
+@@ -309,18 +333,7 @@ return {
+       "selections": [
+         {
+           "alias": null,
+-          "args": [
+-            {
+-              "kind": "Variable",
+-              "name": "baseExperimentId",
+-              "variableName": "baseExperimentId"
+-            },
+-            {
+-              "kind": "Variable",
+-              "name": "compareExperimentIds",
+-              "variableName": "compareExperimentIds"
+-            }
+-          ],
++          "args": (v2/*:: as any*/),
+           "concreteType": "ExperimentRunMetricComparisons",
+           "kind": "LinkedField",
+           "name": "experimentRunMetricComparisons",
+@@ -333,7 +346,7 @@ return {
+               "kind": "LinkedField",
+               "name": "latency",
+               "plural": false,
+-              "selections": (v1/*:: as any*/),
++              "selections": (v3/*:: as any*/),
+               "storageKey": null
+             },
+             {
+@@ -343,7 +356,7 @@ return {
+               "kind": "LinkedField",
+               "name": "totalTokenCount",
+               "plural": false,
+-              "selections": (v1/*:: as any*/),
++              "selections": (v3/*:: as any*/),
+               "storageKey": null
+             },
+             {
+@@ -353,7 +366,7 @@ return {
+               "kind": "LinkedField",
+               "name": "promptTokenCount",
+               "plural": false,
+-              "selections": (v1/*:: as any*/),
++              "selections": (v3/*:: as any*/),
+               "storageKey": null
+             },
+             {
+@@ -363,7 +376,7 @@ return {
+               "kind": "LinkedField",
+               "name": "completionTokenCount",
+               "plural": false,
+-              "selections": (v1/*:: as any*/),
++              "selections": (v3/*:: as any*/),
+               "storageKey": null
+             },
+             {
+@@ -373,7 +386,7 @@ return {
+               "kind": "LinkedField",
+               "name": "totalCost",
+               "plural": false,
+-              "selections": (v1/*:: as any*/),
++              "selections": (v3/*:: as any*/),
+               "storageKey": null
+             },
+             {
+@@ -383,7 +396,7 @@ return {
+               "kind": "LinkedField",
+               "name": "promptCost",
+               "plural": false,
+-              "selections": (v1/*:: as any*/),
++              "selections": (v3/*:: as any*/),
+               "storageKey": null
+             },
+             {
+@@ -393,7 +406,75 @@ return {
+               "kind": "LinkedField",
+               "name": "completionCost",
+               "plural": false,
+-              "selections": (v1/*:: as any*/),
++              "selections": (v3/*:: as any*/),
++              "storageKey": null
++            }
++          ],
++          "storageKey": null
++        },
++        {
++          "alias": null,
++          "args": (v2/*:: as any*/),
++          "concreteType": "ExperimentAnnotationEvidence",
++          "kind": "LinkedField",
++          "name": "experimentAnnotationEvidence",
++          "plural": true,
++          "selections": [
++            (v1/*:: as any*/),
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "compareExperimentId",
++              "storageKey": null
++            },
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "difference",
++              "storageKey": null
++            },
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "lower",
++              "storageKey": null
++            },
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "upper",
++              "storageKey": null
++            },
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "verdict",
++              "storageKey": null
++            },
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "examples",
++              "storageKey": null
++            },
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "examplesNeeded",
++              "storageKey": null
++            },
++            {
++              "alias": null,
++              "args": null,
++              "kind": "ScalarField",
++              "name": "missingCompare",
+               "storageKey": null
+             }
+           ],
+@@ -407,6 +488,6 @@ return {
+ };
+ })();
+ 
+-(node as any).hash = "fa7f947d2519a1699258e11dd26e22ff";
++(node as any).hash = "bfbe735199346d7f7e5b01b5fe3a1c17";
+ 
+ export default node;
+diff --git a/js/app/src/pages/experiment/__generated__/ExperimentComparePageQueriesCompareMetricsQuery.graphql.ts b/js/app/src/pages/experiment/__generated__/ExperimentComparePageQueriesCompareMetricsQuery.graphql.ts
+index cd8114b..485bb54 100644
+--- a/js/app/src/pages/experiment/__generated__/ExperimentComparePageQueriesCompareMetricsQuery.graphql.ts
++++ b/js/app/src/pages/experiment/__generated__/ExperimentComparePageQueriesCompareMetricsQuery.graphql.ts
+@@ -1,5 +1,5 @@
+ /**
+- * @generated SignedSource<<31874d5d1bd5ebddd0f7f19072f3fda3>>
++ * @generated SignedSource<<f79f67a9ce8c55c90504163ee701f9bf>>
+  * @lightSyntaxTransform
+  */
+ 
+@@ -83,7 +83,18 @@ v8 = [
+     "storageKey": null
+   }
+ ],
+-v9 = [
++v9 = {
++  "alias": null,
++  "args": null,
++  "kind": "ScalarField",
++  "name": "annotationName",
++  "storageKey": null
++},
++v10 = [
++  (v5/*:: as any*/),
++  (v6/*:: as any*/)
++],
++v11 = [
+   {
+     "alias": null,
+     "args": null,
+@@ -274,13 +285,7 @@ return {
+                             "name": "annotationSummaries",
+                             "plural": true,
+                             "selections": [
+-                              {
+-                                "alias": null,
+-                                "args": null,
+-                                "kind": "ScalarField",
+-                                "name": "annotationName",
+-                                "storageKey": null
+-                              },
++                              (v9/*:: as any*/),
+                               {
+                                 "alias": null,
+                                 "args": null,
+@@ -315,10 +320,7 @@ return {
+         "selections": [
+           {
+             "alias": null,
+-            "args": [
+-              (v5/*:: as any*/),
+-              (v6/*:: as any*/)
+-            ],
++            "args": (v10/*:: as any*/),
+             "concreteType": "ExperimentRunMetricComparisons",
+             "kind": "LinkedField",
+             "name": "experimentRunMetricComparisons",
+@@ -331,7 +333,7 @@ return {
+                 "kind": "LinkedField",
+                 "name": "latency",
+                 "plural": false,
+-                "selections": (v9/*:: as any*/),
++                "selections": (v11/*:: as any*/),
+                 "storageKey": null
+               },
+               {
+@@ -341,7 +343,7 @@ return {
+                 "kind": "LinkedField",
+                 "name": "totalTokenCount",
+                 "plural": false,
+-                "selections": (v9/*:: as any*/),
++                "selections": (v11/*:: as any*/),
+                 "storageKey": null
+               },
+               {
+@@ -351,7 +353,7 @@ return {
+                 "kind": "LinkedField",
+                 "name": "promptTokenCount",
+                 "plural": false,
+-                "selections": (v9/*:: as any*/),
++                "selections": (v11/*:: as any*/),
+                 "storageKey": null
+               },
+               {
+@@ -361,7 +363,7 @@ return {
+                 "kind": "LinkedField",
+                 "name": "completionTokenCount",
+                 "plural": false,
+-                "selections": (v9/*:: as any*/),
++                "selections": (v11/*:: as any*/),
+                 "storageKey": null
+               },
+               {
+@@ -371,7 +373,7 @@ return {
+                 "kind": "LinkedField",
+                 "name": "totalCost",
+                 "plural": false,
+-                "selections": (v9/*:: as any*/),
++                "selections": (v11/*:: as any*/),
+                 "storageKey": null
+               },
+               {
+@@ -381,7 +383,7 @@ return {
+                 "kind": "LinkedField",
+                 "name": "promptCost",
+                 "plural": false,
+-                "selections": (v9/*:: as any*/),
++                "selections": (v11/*:: as any*/),
+                 "storageKey": null
+               },
+               {
+@@ -391,7 +393,75 @@ return {
+                 "kind": "LinkedField",
+                 "name": "completionCost",
+                 "plural": false,
+-                "selections": (v9/*:: as any*/),
++                "selections": (v11/*:: as any*/),
++                "storageKey": null
++              }
++            ],
++            "storageKey": null
++          },
++          {
++            "alias": null,
++            "args": (v10/*:: as any*/),
++            "concreteType": "ExperimentAnnotationEvidence",
++            "kind": "LinkedField",
++            "name": "experimentAnnotationEvidence",
++            "plural": true,
++            "selections": [
++              (v9/*:: as any*/),
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "compareExperimentId",
++                "storageKey": null
++              },
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "difference",
++                "storageKey": null
++              },
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "lower",
++                "storageKey": null
++              },
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "upper",
++                "storageKey": null
++              },
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "verdict",
++                "storageKey": null
++              },
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "examples",
++                "storageKey": null
++              },
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "examplesNeeded",
++                "storageKey": null
++              },
++              {
++                "alias": null,
++                "args": null,
++                "kind": "ScalarField",
++                "name": "missingCompare",
+                 "storageKey": null
+               }
+             ],
+@@ -402,12 +472,12 @@ return {
+     ]
+   },
+   "params": {
+-    "cacheID": "f7b697815accab3308c8d5f74bb2b149",
++    "cacheID": "66a45a4d79d2d1be442f94ee8e5f6794",
+     "id": null,
+     "metadata": {},
+     "name": "ExperimentComparePageQueriesCompareMetricsQuery",
+     "operationKind": "query",
+-    "text": "query ExperimentComparePageQueriesCompareMetricsQuery(\n  $datasetId: ID!\n  $baseExperimentId: ID!\n  $compareExperimentIds: [ID!]!\n  $experimentIds: [ID!]!\n  $hasCompareExperiments: Boolean!\n) {\n  ...ExperimentCompareMetricsPage_experiments_4DSN89\n}\n\nfragment ExperimentCompareMetricsPage_experiments_4DSN89 on Query {\n  dataset: node(id: $datasetId) {\n    __typename\n    ... on Dataset {\n      experiments(filterIds: $experimentIds, includeEphemeral: true) {\n        edges {\n          experiment: node {\n            id\n            averageRunLatencyMs\n            costSummary {\n              total {\n                tokens\n                cost\n              }\n              prompt {\n                tokens\n                cost\n              }\n              completion {\n                tokens\n                cost\n              }\n            }\n            annotationSummaries {\n              annotationName\n              meanScore\n            }\n          }\n        }\n      }\n    }\n    id\n  }\n  experimentRunMetricComparisons(baseExperimentId: $baseExperimentId, compareExperimentIds: $compareExperimentIds) @include(if: $hasCompareExperiments) {\n    latency {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    totalTokenCount {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    promptTokenCount {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    completionTokenCount {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    totalCost {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    promptCost {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    completionCost {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n  }\n}\n"
++    "text": "query ExperimentComparePageQueriesCompareMetricsQuery(\n  $datasetId: ID!\n  $baseExperimentId: ID!\n  $compareExperimentIds: [ID!]!\n  $experimentIds: [ID!]!\n  $hasCompareExperiments: Boolean!\n) {\n  ...ExperimentCompareMetricsPage_experiments_4DSN89\n}\n\nfragment ExperimentCompareMetricsPage_experiments_4DSN89 on Query {\n  dataset: node(id: $datasetId) {\n    __typename\n    ... on Dataset {\n      experiments(filterIds: $experimentIds, includeEphemeral: true) {\n        edges {\n          experiment: node {\n            id\n            averageRunLatencyMs\n            costSummary {\n              total {\n                tokens\n                cost\n              }\n              prompt {\n                tokens\n                cost\n              }\n              completion {\n                tokens\n                cost\n              }\n            }\n            annotationSummaries {\n              annotationName\n              meanScore\n            }\n          }\n        }\n      }\n    }\n    id\n  }\n  experimentRunMetricComparisons(baseExperimentId: $baseExperimentId, compareExperimentIds: $compareExperimentIds) @include(if: $hasCompareExperiments) {\n    latency {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    totalTokenCount {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    promptTokenCount {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    completionTokenCount {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    totalCost {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    promptCost {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n    completionCost {\n      numRunsImproved\n      numRunsRegressed\n      numRunsEqual\n    }\n  }\n  experimentAnnotationEvidence(baseExperimentId: $baseExperimentId, compareExperimentIds: $compareExperimentIds) @include(if: $hasCompareExperiments) {\n    annotationName\n    compareExperimentId\n    difference\n    lower\n    upper\n    verdict\n    examples\n    examplesNeeded\n    missingCompare\n  }\n}\n"
+   }
+ };
+ })();
+diff --git a/js/app/src/pages/experiment/__tests__/utils.test.ts b/js/app/src/pages/experiment/__tests__/utils.test.ts
+index 94c9509..79c24bc 100644
+--- a/js/app/src/pages/experiment/__tests__/utils.test.ts
++++ b/js/app/src/pages/experiment/__tests__/utils.test.ts
+@@ -1,4 +1,9 @@
+-import { calculateAnnotationScorePercentile } from "../utils";
++import {
++  calculateAnnotationScorePercentile,
++  evidenceTitle,
++  formatEvidence,
++  formatPercentageDelta,
++} from "../utils";
+ 
+ describe("calculateAnnotationScorePercentile", () => {
+   describe("with default min/max (0 to 1 range)", () => {
+@@ -61,3 +66,78 @@ describe("calculateAnnotationScorePercentile", () => {
+     });
+   });
+ });
++
++describe("formatPercentageDelta", () => {
++  const formatPercent = (value: number) => `${value.toFixed(2)}%`;
++
++  it("formats increases and decreases relative to the base value", () => {
++    expect(
++      formatPercentageDelta({ value: 1.5, baseValue: 1, formatPercent })
++    ).toEqual("+50.00%");
++    expect(
++      formatPercentageDelta({ value: 0.5, baseValue: 1, formatPercent })
++    ).toEqual("-50.00%");
++    expect(
++      formatPercentageDelta({ value: 1, baseValue: 1, formatPercent })
++    ).toEqual("+0.00%");
++  });
++
++  it("does not report a change from a base value of 0 as +0%", () => {
++    expect(
++      formatPercentageDelta({ value: 0.9, baseValue: 0, formatPercent })
++    ).toEqual("--");
++    expect(
++      formatPercentageDelta({ value: 0, baseValue: 0, formatPercent })
++    ).toEqual("+0.00%");
++  });
++
++  it("does not report a missing value as +0%", () => {
++    expect(
++      formatPercentageDelta({ value: null, baseValue: 0.5, formatPercent })
++    ).toEqual("--");
++    expect(
++      formatPercentageDelta({ value: 0.5, baseValue: undefined, formatPercent })
++    ).toEqual("--");
++  });
++});
++
++describe("formatEvidence", () => {
++  const base = {
++    difference: 0.042,
++    lower: 0.008,
++    upper: 0.083,
++    examples: 120,
++    examplesNeeded: 186,
++    missingCompare: 12,
++  };
++
++  it("says when a difference is not shown, and how many examples would show it", () => {
++    expect(
++      formatEvidence({ ...base, verdict: "NO_DETECTABLE_DIFFERENCE" })
++    ).toEqual({
++      text: "+0.042 [+0.008, +0.083] not detectable, ~186 examples to tell",
++      color: "text-500",
++    });
++  });
++
++  it("colors a shown difference by its direction", () => {
++    expect(formatEvidence({ ...base, verdict: "BETTER" }).color).toEqual(
++      "success"
++    );
++    expect(
++      formatEvidence({
++        ...base,
++        difference: -0.08,
++        lower: -0.12,
++        upper: -0.03,
++        verdict: "WORSE",
++      })
++    ).toEqual({ text: "-0.080 [-0.120, -0.030] worse", color: "danger" });
++  });
++
++  it("explains failed runs in the hover text", () => {
++    expect(evidenceTitle({ ...base, verdict: "BETTER" })).toContain(
++      "12 compare runs failed or were unscored"
++    );
++  });
++});
+diff --git a/js/app/src/pages/experiment/utils.ts b/js/app/src/pages/experiment/utils.ts
+index 75e1dac..f10b053 100644
+--- a/js/app/src/pages/experiment/utils.ts
++++ b/js/app/src/pages/experiment/utils.ts
+@@ -17,3 +17,75 @@ export function calculateAnnotationScorePercentile(
+   const range = correctedMax - correctedMin || 1;
+   return ((value - correctedMin) / range) * 100;
+ }
++
++/**
++ * Formats the relative change of a compare experiment's value against the base
++ * experiment's value, e.g. "+12.50%" or "-3.00%".
++ *
++ * Returns "--" when the change is undefined: either value is missing, or the
++ * base value is 0 and the compare value is not (no percentage of 0 exists).
++ * Showing "+0%" in those cases would read as "no change".
++ */
++export function formatPercentageDelta({
++  value,
++  baseValue,
++  formatPercent,
++}: {
++  value: number | null | undefined;
++  baseValue: number | null | undefined;
++  formatPercent: (value: number) => string;
++}): string {
++  if (typeof value !== "number" || typeof baseValue !== "number") {
++    return "--";
++  }
++  const delta = value - baseValue;
++  if (baseValue === 0) {
++    return delta === 0 ? `+${formatPercent(0)}` : "--";
++  }
++  const sign = delta >= 0 ? "+" : "-";
++  return `${sign}${formatPercent(Math.abs(delta / baseValue) * 100)}`;
++}
++
++/** Evidence on a compare experiment's difference from the base experiment. */
++export type EvidenceSummary = {
++  difference: number;
++  lower: number;
++  upper: number;
++  verdict: string;
++  examples: number;
++  examplesNeeded: number | null;
++  missingCompare: number;
++};
++
++const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(3)}`;
++
++/**
++ * One line for a metric card: the paired difference, its 95% interval, and a
++ * verdict colored by whether the difference is shown on these examples.
++ */
++export function formatEvidence(evidence: EvidenceSummary): {
++  text: string;
++  color: "success" | "danger" | "text-500";
++} {
++  const interval = `${signed(evidence.difference)} [${signed(evidence.lower)}, ${signed(evidence.upper)}]`;
++  if (evidence.verdict === "BETTER") {
++    return { text: `${interval} better`, color: "success" };
++  }
++  if (evidence.verdict === "WORSE") {
++    return { text: `${interval} worse`, color: "danger" };
++  }
++  const needed =
++    evidence.examplesNeeded != null
++      ? `, ~${evidence.examplesNeeded} examples to tell`
++      : "";
++  return { text: `${interval} not detectable${needed}`, color: "text-500" };
++}
++
++/** Hover text explaining how the evidence line was computed. */
++export function evidenceTitle(evidence: EvidenceSummary): string {
++  const missing =
++    evidence.missingCompare > 0
++      ? ` ${evidence.missingCompare} compare runs failed or were unscored and count as the worst score.`
++      : "";
++  return `Paired on ${evidence.examples} examples both experiments ran; 95% interval on the difference.${missing}`;
++}
+diff --git a/js/packages/phoenix-client/src/testing/acceptance.ts b/js/packages/phoenix-client/src/testing/acceptance.ts
+index 89cb8e2..7ad7baa 100644
+--- a/js/packages/phoenix-client/src/testing/acceptance.ts
++++ b/js/packages/phoenix-client/src/testing/acceptance.ts
+@@ -59,6 +59,13 @@ export function formatAcceptanceResult(result: AcceptanceResult): string {
+     requirement = `pass rate >= ${result.minPassRate.toFixed(3)}`;
+   }
+   const reason = result.failureReason ? ` - ${result.failureReason}` : "";
++  if (result.valueInterval && result.verdict) {
++    const [low, high] = result.valueInterval;
++    const missing = result.missingCount
++      ? `, ${result.missingCount} unscored run${result.missingCount > 1 ? "s" : ""} counted as failing`
++      : "";
++    return `${status} ${result.annotationName} ${result.metric} ${value} [${low.toFixed(3)}, ${high.toFixed(3)}] ${result.verdict} (need ${requirement} on the interval; ${result.exampleCount} examples, ${result.sampleCount} ${sampleLabel}${missing})${reason}`;
++  }
+   return `${status} ${result.annotationName} ${result.metric} ${value} (need ${requirement}; ${result.sampleCount} ${sampleLabel})${reason}`;
+ }
+ 
+@@ -69,6 +76,9 @@ function evaluateAcceptanceCriterion({
+   criterion: AcceptanceCriterion;
+   results: readonly TestResult[];
+ }): AcceptanceResult {
++  if (criterion.interval) {
++    return evaluateOnInterval({ criterion, results });
++  }
+   const annotations = collectAnnotations({ criterion, results });
+ 
+   if (criterion.metric === "average") {
+@@ -119,6 +129,180 @@ function evaluateAcceptanceCriterion({
+   };
+ }
+ 
++/**
++ * Decide a criterion on an exact (Clopper-Pearson) interval. Each test counts
++ * once, by the mean of its runs' outcomes, so repetitions do not shrink the
++ * interval; a run without the annotation scores the worst outcome (0, or 1
++ * when minimizing). The interval is taken on
++ * the number of examples, with the summed outcomes rounded down for the lower
++ * bound and up for the upper, which keeps it conservative for fractional
++ * scores.
++ */
++function evaluateOnInterval({
++  criterion,
++  results,
++}: {
++  criterion: AcceptanceCriterion;
++  results: readonly TestResult[];
++}): AcceptanceResult {
++  const confidence = criterion.interval?.confidence ?? 0.95;
++  const alpha = 1 - confidence;
++  const byTest = new Map<string, number[]>();
++  let missingCount = 0;
++  for (const result of results) {
++    if (result.status === "skipped") {
++      continue;
++    }
++    const annotation = findLastAnnotation({
++      annotations: result.annotations,
++      annotationName: criterion.annotationName,
++    });
++    // A run that never scored counts as the worst outcome in the criterion's direction.
++    const worst =
++      criterion.metric === "average" && criterion.direction === "minimize"
++        ? 1
++        : 0;
++    let outcome: number;
++    if (annotation === undefined) {
++      missingCount += 1;
++      outcome = worst;
++    } else if (criterion.metric === "passRate") {
++      outcome = criterion.passFn(annotation) ? 1 : 0;
++    } else {
++      const score = annotation.score;
++      if (!isValidScore(score)) {
++        missingCount += 1;
++        outcome = worst;
++      } else {
++        outcome = typeof score === "boolean" ? Number(score) : score;
++        if (outcome < 0 || outcome > 1) {
++          return {
++            ...criterion,
++            value: null,
++            sampleCount: 0,
++            passed: false,
++            failureReason: "interval criteria need scores between 0 and 1",
++          };
++        }
++      }
++    }
++    // Repetitions of one test share an example: the runner names them `<name> [rep i/N]`.
++    const exampleKey =
++      result.exampleId ?? result.testName.replace(/ \[rep \d+\/\d+\]$/, "");
++    const outcomes = byTest.get(exampleKey) ?? [];
++    outcomes.push(outcome);
++    byTest.set(exampleKey, outcomes);
++  }
++  const shares = [...byTest.values()].map(calculateAverage);
++  const exampleCount = shares.length;
++  if (exampleCount === 0) {
++    return {
++      ...criterion,
++      value: null,
++      sampleCount: 0,
++      passed: false,
++      failureReason: "no runs to decide on",
++    };
++  }
++  const total = shares.reduce((sum, share) => sum + share, 0);
++  const valueInterval: [number, number] = [
++    clopperPearson(Math.floor(total + 1e-9), exampleCount, alpha)[0],
++    clopperPearson(Math.ceil(total - 1e-9), exampleCount, alpha)[1],
++  ];
++  const [low, high] = valueInterval;
++  const bar =
++    criterion.metric === "passRate"
++      ? criterion.minPassRate
++      : criterion.threshold;
++  const minimize =
++    criterion.metric === "average" && criterion.direction === "minimize";
++  let verdict: "pass" | "fail" | "undecided";
++  if (minimize) {
++    verdict = high <= bar ? "pass" : low > bar ? "fail" : "undecided";
++  } else {
++    verdict = low >= bar ? "pass" : high < bar ? "fail" : "undecided";
++  }
++  const passesWhenUndecided = criterion.interval?.whenUndecided === "pass";
++  return {
++    ...criterion,
++    value: total / exampleCount,
++    sampleCount: [...byTest.values()].reduce((n, runs) => n + runs.length, 0),
++    passed:
++      verdict === "pass" || (verdict === "undecided" && passesWhenUndecided),
++    valueInterval,
++    verdict,
++    exampleCount,
++    missingCount,
++    failureReason:
++      verdict === "undecided" && !passesWhenUndecided
++        ? `the interval contains the bar: ${exampleCount} examples cannot decide`
++        : undefined,
++  };
++}
++
++/** P(X <= k) for X ~ Binomial(n, p), summed in log space. */
++function binomialCdf(k: number, n: number, p: number): number {
++  if (k < 0) return 0;
++  if (k >= n || p <= 0) return 1;
++  if (p >= 1) return 0;
++  const logP = Math.log(p);
++  const logQ = Math.log1p(-p);
++  const logN = logGamma(n + 1);
++  const terms: number[] = [];
++  for (let i = 0; i <= k; i++) {
++    terms.push(
++      logN - logGamma(i + 1) - logGamma(n - i + 1) + i * logP + (n - i) * logQ
++    );
++  }
++  const top = Math.max(...terms);
++  return Math.min(
++    1,
++    Math.exp(top) * terms.reduce((sum, t) => sum + Math.exp(t - top), 0)
++  );
++}
++
++/** Lanczos approximation of log Γ(x), accurate to ~1e-13 for x > 0. */
++function logGamma(x: number): number {
++  const g = 7;
++  const c = [
++    0.99999999999980993, 676.5203681218851, -1259.1392167224028,
++    771.32342877765313, -176.61502916214059, 12.507343278686905,
++    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
++  ];
++  if (x < 0.5) {
++    return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
++  }
++  const z = x - 1;
++  let a = c[0]!;
++  const t = z + g + 0.5;
++  for (let i = 1; i < g + 2; i++) {
++    a += c[i]! / (z + i);
++  }
++  return (
++    0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(a)
++  );
++}
++
++/** Exact two-sided binomial interval for `successes` out of `trials`. */
++function clopperPearson(
++  successes: number,
++  trials: number,
++  alpha: number
++): [number, number] {
++  const upper = (k: number): number => {
++    if (k >= trials) return 1;
++    let low = k / trials;
++    let high = 1;
++    for (let i = 0; i < 60; i++) {
++      const mid = (low + high) / 2;
++      if (binomialCdf(k, trials, mid) > alpha / 2) low = mid;
++      else high = mid;
++    }
++    return high;
++  };
++  return [1 - upper(trials - successes), upper(successes)];
++}
++
+ /** Whether `value` clears `bar` in the given optimization direction. */
+ function meetsBar(
+   value: number,
+diff --git a/js/packages/phoenix-client/src/testing/types.ts b/js/packages/phoenix-client/src/testing/types.ts
+index c919ef5..12a8c35 100644
+--- a/js/packages/phoenix-client/src/testing/types.ts
++++ b/js/packages/phoenix-client/src/testing/types.ts
+@@ -141,6 +141,26 @@ export type OptimizationDirection = "maximize" | "minimize";
+ export interface AcceptanceCriterionBase {
+   /** Annotation name to aggregate across completed test runs. */
+   annotationName: string;
++  /**
++   * Decide on an exact confidence interval instead of the point value. When
++   * set, the suite passes only when the interval clears the bar, fails when it
++   * lies on the wrong side, and is otherwise undecided (see
++   * {@link AcceptanceInterval.whenUndecided}). Repetitions of one test count as
++   * one example, and a run that never logged the annotation counts as a
++   * failure rather than being left out. Scores must lie between `0` and `1`.
++   */
++  interval?: AcceptanceInterval;
++}
++
++/** Options for deciding an {@link AcceptanceCriterion} on an interval. */
++export interface AcceptanceInterval {
++  /** Two-sided confidence of the interval; defaults to `0.95`. */
++  confidence?: number;
++  /**
++   * What an undecided result (the interval contains the bar) does to the
++   * suite; defaults to `"fail"`.
++   */
++  whenUndecided?: "fail" | "pass";
+ }
+ 
+ /**
+@@ -217,6 +237,14 @@ export interface AcceptanceResultFields {
+   passed: boolean;
+   /** Human-readable failure reason for invalid or empty aggregates. */
+   failureReason?: string;
++  /** With {@link AcceptanceCriterionBase.interval}: the exact interval on the value. */
++  valueInterval?: [number, number];
++  /** With an interval: whether it cleared the bar, missed it, or contains it. */
++  verdict?: "pass" | "fail" | "undecided";
++  /** With an interval: distinct tests (examples); repetitions count once. */
++  exampleCount?: number;
++  /** With an interval: runs that never logged the annotation, counted as failures. */
++  missingCount?: number;
+ }
+ 
+ /** Computed result for one aggregate acceptance rule. */
+diff --git a/js/packages/phoenix-client/test/testing/acceptance.test.ts b/js/packages/phoenix-client/test/testing/acceptance.test.ts
+index 3d78dd9..c7a4c67 100644
+--- a/js/packages/phoenix-client/test/testing/acceptance.test.ts
++++ b/js/packages/phoenix-client/test/testing/acceptance.test.ts
+@@ -217,3 +217,176 @@ function createResult(annotations: Annotation[]): TestResult {
+     durationMs: 1,
+   };
+ }
++
++describe("acceptance criteria on an interval", () => {
++  const scored = (count: number, score: boolean, offset = 0): TestResult[] =>
++    Array.from({ length: count }, (_, index) =>
++      createCase(`case-${offset + index}`, [{ name: "correct", score }])
++    );
++
++  it("is undecided when a small suite clears the bar only on its point value", () => {
++    // 13 of 16 correct: 0.81 >= 0.7, but the exact interval is [0.544, 0.960].
++    const results = [...scored(13, true), ...scored(3, false, 13)];
++    const [strict] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "average",
++          threshold: 0.7,
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(strict).toMatchObject({
++      value: expect.closeTo(0.8125, 4),
++      verdict: "undecided",
++      exampleCount: 16,
++      passed: false,
++    });
++    expect(strict!.valueInterval![0]).toBeCloseTo(0.5435, 4);
++    expect(strict!.valueInterval![1]).toBeCloseTo(0.9595, 4);
++
++    const [lenient] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "average",
++          threshold: 0.7,
++          interval: { whenUndecided: "pass" },
++        },
++      ],
++      results,
++    });
++    expect(lenient).toMatchObject({ verdict: "undecided", passed: true });
++  });
++
++  it("counts runs that never logged the annotation as failures", () => {
++    // #15425: 3 runs score 1 and 7 error before logging; dropping them reads 100%.
++    const results = [
++      ...scored(3, true),
++      ...Array.from({ length: 7 }, (_, index) => ({
++        ...createCase(`crash-${index}`, []),
++        status: "failed" as const,
++      })),
++    ];
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "passRate",
++          passFn: (annotation) => annotation.score === true,
++          minPassRate: 0.9,
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({
++      value: expect.closeTo(0.3, 6),
++      missingCount: 7,
++      verdict: "fail",
++      passed: false,
++    });
++  });
++
++  it("passes when the interval clears the bar", () => {
++    const results = [...scored(98, true), ...scored(2, false, 98)];
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "correct",
++          metric: "average",
++          threshold: 0.8,
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({
++      verdict: "pass",
++      passed: true,
++      exampleCount: 100,
++    });
++  });
++
++  it("counts repetitions of one test once, as the runner names them", () => {
++    // runner.ts names repeated runs `${uniqueName} [rep ${rep}/${repetitions}]`.
++    const results = Array.from({ length: 30 }, (_, index) => ({
++      ...createCase(`case-${index % 10} [rep ${Math.floor(index / 10) + 1}/3]`, [
++        { name: "correct", score: true },
++      ]),
++      repetitionNumber: Math.floor(index / 10) + 1,
++      repetitions: 3,
++    }));
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        { annotationName: "correct", metric: "average", threshold: 0.8, interval: {} },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({ exampleCount: 10, sampleCount: 30, verdict: "undecided" });
++    expect(result!.valueInterval![0]).toBeCloseTo(0.6915, 4); // 10/10, not 30/30
++  });
++
++  it("counts a missing score as the worst outcome when minimizing", () => {
++    const results = Array.from({ length: 60 }, (_, index) => createCase(`case-${index}`, []));
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "error",
++          metric: "average",
++          threshold: 0.1,
++          direction: "minimize",
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({ verdict: "fail", passed: false, missingCount: 60 });
++  });
++
++  it("decides a minimized metric on the upper bound", () => {
++    const results = Array.from({ length: 60 }, (_, index) =>
++      createCase(`case-${index}`, [{ name: "error", score: 0 }])
++    );
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "error",
++          metric: "average",
++          threshold: 0.1,
++          direction: "minimize",
++          interval: {},
++        },
++      ],
++      results,
++    });
++    expect(result).toMatchObject({ verdict: "pass", passed: true });
++    expect(formatAcceptanceResult(result!)).toContain(
++      "on the interval; 60 examples"
++    );
++  });
++
++  it("refuses scores outside 0 to 1", () => {
++    const [result] = evaluateAcceptanceCriteria({
++      criteria: [
++        {
++          annotationName: "tokens",
++          metric: "average",
++          threshold: 100,
++          interval: {},
++        },
++      ],
++      results: [createCase("case-0", [{ name: "tokens", score: 250 }])],
++    });
++    expect(result).toMatchObject({
++      passed: false,
++      failureReason: expect.stringContaining("between 0 and 1"),
++    });
++  });
++});
++
++function createCase(testName: string, annotations: Annotation[]): TestResult {
++  return { ...createResult(annotations), testName };
++}
+diff --git a/src/phoenix/server/api/helpers/paired_comparison.py b/src/phoenix/server/api/helpers/paired_comparison.py
+new file mode 100644
+index 0000000..6fe88ee
+--- /dev/null
++++ b/src/phoenix/server/api/helpers/paired_comparison.py
+@@ -0,0 +1,170 @@
++"""Is a compare experiment's annotation score really different from the base experiment's?
++
++Both experiments ran on the same dataset examples, so each example gives one paired difference
++(compare minus base, each averaged over its repetitions). A run that errored, or whose
++annotation is missing or errored, counts as the worst score seen for that annotation, so an
++experiment cannot look better by failing on the hard examples.
++
++The decision is a sign-flip test on the differences: exact up to 16 examples that differ (Monte
++Carlo with a fixed seed above), under the null that the two experiments are interchangeable on
++each example. The interval on the mean difference is a seeded percentile bootstrap over examples
++and is descriptive. Differences across several annotations are corrected with Holm's method.
++"""
++
++import itertools
++import math
++import random
++from dataclasses import dataclass
++from typing import Literal, Mapping, Optional, Sequence
++
++Verdict = Literal["BETTER", "WORSE", "NO_DETECTABLE_DIFFERENCE"]
++
++_EXACT_LIMIT = 16
++_DRAWS = 20_000
++_BOOTSTRAP = 2_000
++
++
++@dataclass(frozen=True)
++class PairedComparison:
++    base_mean: float
++    compare_mean: float
++    difference: float
++    lower: float
++    upper: float
++    p_value: float
++    examples: int
++    missing_base: int
++    missing_compare: int
++    examples_needed: Optional[int]
++
++
++def example_means(
++    scores: Mapping[str, Sequence[Optional[float]]], missing_as: float
++) -> tuple[dict[str, float], int]:
++    """Mean score per example over its repetitions, with missing scores counted as `missing_as`."""
++    means: dict[str, float] = {}
++    missing = 0
++    for example_id, values in scores.items():
++        filled = []
++        for value in values or [None]:
++            if value is None:
++                missing += 1
++                filled.append(missing_as)
++            else:
++                filled.append(value)
++        means[example_id] = sum(filled) / len(filled)
++    return means, missing
++
++
++def sign_flip_p_value(differences: Sequence[float], seed: int = 0) -> float:
++    """Two-sided p-value for no difference, flipping the sign of each paired difference."""
++    nonzero = [d for d in differences if d != 0]
++    if not nonzero:
++        return 1.0
++    observed = abs(sum(nonzero))
++    tolerance = 1e-12
++    if len(nonzero) <= _EXACT_LIMIT:
++        hits = sum(
++            1
++            for signs in itertools.product((1, -1), repeat=len(nonzero))
++            if abs(sum(s * d for s, d in zip(signs, nonzero))) >= observed - tolerance
++        )
++        return hits / float(2 ** len(nonzero))
++    rng = random.Random(seed)
++    hits = 1
++    for _ in range(_DRAWS):
++        if abs(sum(d if rng.random() < 0.5 else -d for d in nonzero)) >= observed - tolerance:
++            hits += 1
++    return hits / (_DRAWS + 1)
++
++
++def examples_needed_continuous(sd: float, difference: float) -> Optional[int]:
++    """Examples to detect `difference` at 80% power, two-sided 5%, for paired differences with
++    standard deviation `sd` (normal approximation; unchanged when every score is rescaled)."""
++    if difference == 0 or sd <= 0:
++        return None
++    z_alpha, z_beta = 1.959963984540054, 0.8416212335729143
++    return math.ceil(((z_alpha + z_beta) * sd / difference) ** 2)
++
++
++def examples_needed(discordant_share: float, difference: float) -> Optional[int]:
++    """Examples to detect `difference` at 80% power, two-sided 5%.
++
++    Connor (1987), paired proportions, at the observed share of examples that changed.
++    """
++    if difference == 0 or discordant_share <= 0 or abs(difference) > discordant_share:
++        return None
++    z_alpha, z_beta = 1.959963984540054, 0.8416212335729143
++    spread = z_alpha * math.sqrt(discordant_share)
++    spread += z_beta * math.sqrt(discordant_share - difference**2)
++    return math.ceil(spread**2 / difference**2)
++
++
++def compare_scores(
++    base: Mapping[str, Sequence[Optional[float]]],
++    compare: Mapping[str, Sequence[Optional[float]]],
++    seed: int = 0,
++    minimize: bool = False,
++) -> Optional[PairedComparison]:
++    """Paired comparison on the examples both experiments ran; None when they share none.
++
++    A missing score counts as the worst score seen in either experiment: the lowest, or the
++    highest when lower is better (`minimize`).
++    """
++    seen = [
++        value
++        for side in (base, compare)
++        for values in side.values()
++        for value in values
++        if value is not None
++    ]
++    worst = (max(seen) if minimize else min(seen)) if seen else 0.0
++    base_means, missing_base = example_means(base, worst)
++    compare_means, missing_compare = example_means(compare, worst)
++    shared = sorted(set(base_means) & set(compare_means))
++    if not shared:
++        return None
++    differences = [compare_means[k] - base_means[k] for k in shared]
++    n = len(differences)
++    difference = sum(differences) / n
++    rng = random.Random(seed)
++    boots = sorted(
++        sum(differences[rng.randrange(n)] for _ in range(n)) / n for _ in range(_BOOTSTRAP)
++    )
++    binary = all(value in (0.0, 1.0) for value in seen)
++    if binary:
++        needed = examples_needed(sum(1 for d in differences if d != 0) / n, abs(difference))
++    else:
++        mean = difference
++        sd = math.sqrt(sum((d - mean) ** 2 for d in differences) / max(n - 1, 1))
++        needed = examples_needed_continuous(sd, abs(difference))
++    return PairedComparison(
++        base_mean=sum(base_means[k] for k in shared) / n,
++        compare_mean=sum(compare_means[k] for k in shared) / n,
++        difference=difference,
++        lower=boots[int(0.025 * _BOOTSTRAP)],
++        upper=boots[int(0.975 * _BOOTSTRAP) - 1],
++        p_value=sign_flip_p_value(differences, seed),
++        examples=n,
++        missing_base=missing_base,
++        missing_compare=missing_compare,
++        examples_needed=needed,
++    )
++
++
++def holm(p_values: Sequence[float], alpha: float = 0.05) -> list[bool]:
++    """Holm's step-down correction: which p-values are significant together, in input order."""
++    order = sorted(range(len(p_values)), key=lambda i: p_values[i])
++    significant = [False] * len(p_values)
++    for rank, i in enumerate(order):
++        if p_values[i] > alpha / (len(p_values) - rank):
++            break
++        significant[i] = True
++    return significant
++
++
++def verdict(comparison: PairedComparison, significant: bool, minimize: bool = False) -> Verdict:
++    if not significant:
++        return "NO_DETECTABLE_DIFFERENCE"
++    higher = comparison.difference > 0
++    return "BETTER" if higher != minimize else "WORSE"
+diff --git a/src/phoenix/server/api/queries.py b/src/phoenix/server/api/queries.py
+index c68afc3..cc16037 100644
+--- a/src/phoenix/server/api/queries.py
++++ b/src/phoenix/server/api/queries.py
+@@ -52,6 +52,8 @@ from phoenix.server.api.helpers.experiment_run_filters import (
+     compile_sqlalchemy_filter_condition,
+     update_examples_query_with_filter_condition,
+ )
++from phoenix.server.api.helpers.paired_comparison import compare_scores, holm
++from phoenix.server.api.helpers.paired_comparison import verdict as paired_verdict
+ from phoenix.server.api.helpers.playground_clients import (
+     initialize_playground_clients,
+ )
+@@ -223,6 +225,48 @@ class ExperimentRunMetricComparisons:
+     completion_cost: ExperimentRunMetricComparison
+ 
+ 
++@strawberry.type(
++    description=(
++        "Whether a compare experiment's annotation score differs from the base experiment's, "
++        "paired on the dataset examples both ran, with a 95% interval on the difference."
++    )
++)
++class ExperimentAnnotationEvidence:
++    annotation_name: str
++    compare_experiment_id: GlobalID
++    base_mean: float = strawberry.field(
++        description="Mean base score on the shared examples, failed runs included."
++    )
++    compare_mean: float = strawberry.field(
++        description="Mean compare score on the shared examples, failed runs included."
++    )
++    difference: float = strawberry.field(description="Compare mean minus base mean.")
++    lower: float = strawberry.field(description="Lower end of a 95% bootstrap interval.")
++    upper: float = strawberry.field(description="Upper end of a 95% bootstrap interval.")
++    p_value: float = strawberry.field(
++        description="Two-sided sign-flip test of no difference (exact up to 16 differing examples)."
++    )
++    verdict: str = strawberry.field(
++        description=(
++            "BETTER, WORSE or NO_DETECTABLE_DIFFERENCE, after Holm correction across the "
++            "annotations compared for this experiment."
++        )
++    )
++    examples: int = strawberry.field(description="Dataset examples both experiments ran.")
++    missing_base: int = strawberry.field(
++        description="Base runs without a score (failed or unannotated), scored as the worst."
++    )
++    missing_compare: int = strawberry.field(
++        description="Compare runs without a score (failed or unannotated), scored as the worst."
++    )
++    examples_needed: Optional[int] = strawberry.field(
++        description=(
++            "Examples needed to detect the observed difference at 80% power, at the observed share "
++            "of examples that changed; null when there is no difference."
++        )
++    )
++
++
+ @strawberry.type
+ class Query:
+     @strawberry.field
+@@ -710,6 +754,117 @@ class Query:
+             has_next_page=has_next_page,
+         )
+ 
++    @strawberry.field
++    async def experiment_annotation_evidence(
++        self,
++        info: Info[Context, None],
++        base_experiment_id: GlobalID,
++        compare_experiment_ids: list[GlobalID],
++    ) -> list[ExperimentAnnotationEvidence]:
++        try:
++            base_rowid = from_global_id_with_expected_type(
++                base_experiment_id, models.Experiment.__name__
++            )
++            compare_rowids = [
++                from_global_id_with_expected_type(experiment_id, models.Experiment.__name__)
++                for experiment_id in compare_experiment_ids
++            ]
++        except ValueError:
++            raise BadRequest("Invalid experiment ID")
++        experiment_rowids = [base_rowid, *compare_rowids]
++        async with info.context.db.read() as session:
++            runs = (
++                await session.execute(
++                    select(
++                        models.ExperimentRun.id,
++                        models.ExperimentRun.experiment_id,
++                        models.ExperimentRun.dataset_example_id,
++                        models.ExperimentRun.error,
++                    ).where(models.ExperimentRun.experiment_id.in_(experiment_rowids))
++                )
++            ).all()
++            annotations = (
++                await session.execute(
++                    select(
++                        models.ExperimentRunAnnotation.experiment_run_id,
++                        models.ExperimentRun.experiment_id,
++                        models.ExperimentRunAnnotation.name,
++                        models.ExperimentRunAnnotation.score,
++                        models.ExperimentRunAnnotation.error,
++                    )
++                    .join(
++                        models.ExperimentRun,
++                        models.ExperimentRunAnnotation.experiment_run_id == models.ExperimentRun.id,
++                    )
++                    .where(models.ExperimentRun.experiment_id.in_(experiment_rowids))
++                )
++            ).all()
++        score_by_run: dict[int, dict[str, Optional[float]]] = {}
++        names: set[str] = set()
++        names_by_experiment: dict[int, set[str]] = {rowid: set() for rowid in experiment_rowids}
++        for run_id, experiment_rowid, name, score, error in annotations:
++            if score is not None or error is not None:
++                names.add(name)
++                names_by_experiment[experiment_rowid].add(name)
++            score_by_run.setdefault(run_id, {})[name] = None if error is not None else score
++        async with info.context.db.read() as session:
++            configs = (
++                await session.execute(
++                    select(models.AnnotationConfig.name, models.AnnotationConfig.config).where(
++                        models.AnnotationConfig.name.in_(names)
++                    )
++                )
++            ).all()
++        minimized = {
++            name
++            for name, config in configs
++            if getattr(config, "optimization_direction", None) == OptimizationDirection.MINIMIZE
++        }
++        scores: dict[int, dict[str, dict[str, list[Optional[float]]]]] = {
++            rowid: {name: {} for name in names} for rowid in experiment_rowids
++        }
++        for run_id, experiment_rowid, example_rowid, error in runs:
++            for name in names:
++                value = None if error is not None else score_by_run.get(run_id, {}).get(name)
++                scores[experiment_rowid][name].setdefault(str(example_rowid), []).append(value)
++        evidence: list[ExperimentAnnotationEvidence] = []
++        for compare_id, compare_rowid in zip(compare_experiment_ids, compare_rowids):
++            comparisons = []
++            for name in sorted(names):
++                # Only annotations scored in both experiments are comparable: an evaluator the
++                # base never ran has no baseline to invent.
++                if name not in names_by_experiment[base_rowid] or (
++                    name not in names_by_experiment[compare_rowid]
++                ):
++                    continue
++                result = compare_scores(
++                    scores[base_rowid][name],
++                    scores[compare_rowid][name],
++                    minimize=name in minimized,
++                )
++                if result is not None:
++                    comparisons.append((name, result))
++            significant = holm([result.p_value for _, result in comparisons])
++            for (name, result), is_significant in zip(comparisons, significant):
++                evidence.append(
++                    ExperimentAnnotationEvidence(
++                        annotation_name=name,
++                        compare_experiment_id=compare_id,
++                        base_mean=result.base_mean,
++                        compare_mean=result.compare_mean,
++                        difference=result.difference,
++                        lower=result.lower,
++                        upper=result.upper,
++                        p_value=result.p_value,
++                        verdict=paired_verdict(result, is_significant, minimize=name in minimized),
++                        examples=result.examples,
++                        missing_base=result.missing_base,
++                        missing_compare=result.missing_compare,
++                        examples_needed=result.examples_needed,
++                    )
++                )
++        return evidence
++
+     @strawberry.field
+     async def experiment_run_metric_comparisons(
+         self,
+@@ -742,11 +897,17 @@ class Query:
+             except ValueError:
+                 raise BadRequest(f"Invalid compare experiment ID: {compare_experiment_id}")
+ 
+-        base_experiment_runs = (
++        # Each run's tokens and cost are the sum over the spans of its trace. Both sides are then
++        # reduced to their best run per example in the same way, so identical experiments compare
++        # as equal however many spans a trace has and however many repetitions were run.
++        run_metrics = (
+             select(
+-                models.ExperimentRun.dataset_example_id,
+-                func.min(models.ExperimentRun.start_time).label("start_time"),
+-                func.min(models.ExperimentRun.end_time).label("end_time"),
++                models.ExperimentRun.id.label("run_id"),
++                models.ExperimentRun.experiment_id.label("experiment_id"),
++                models.ExperimentRun.dataset_example_id.label("dataset_example_id"),
++                LatencyMs(models.ExperimentRun.start_time, models.ExperimentRun.end_time).label(
++                    "latency_ms"
++                ),
+                 func.sum(models.SpanCost.total_tokens).label("total_tokens"),
+                 func.sum(models.SpanCost.prompt_tokens).label("prompt_tokens"),
+                 func.sum(models.SpanCost.completion_tokens).label("completion_tokens"),
+@@ -765,46 +926,42 @@ class Query:
+                 onclause=models.Trace.id == models.SpanCost.trace_rowid,
+                 isouter=True,
+             )
+-            .where(models.ExperimentRun.experiment_id == base_experiment_rowid)
+-            .group_by(models.ExperimentRun.dataset_example_id)
+-            .subquery()
+-            .alias("base_experiment_runs")
+-        )
+-        compare_experiment_runs = (
+-            select(
+-                models.ExperimentRun.dataset_example_id,
+-                func.min(
+-                    LatencyMs(models.ExperimentRun.start_time, models.ExperimentRun.end_time)
+-                ).label("min_latency_ms"),
+-                func.min(models.SpanCost.total_tokens).label("min_total_tokens"),
+-                func.min(models.SpanCost.prompt_tokens).label("min_prompt_tokens"),
+-                func.min(models.SpanCost.completion_tokens).label("min_completion_tokens"),
+-                func.min(models.SpanCost.total_cost).label("min_total_cost"),
+-                func.min(models.SpanCost.prompt_cost).label("min_prompt_cost"),
+-                func.min(models.SpanCost.completion_cost).label("min_completion_cost"),
+-            )
+-            .select_from(models.ExperimentRun)
+-            .join(
+-                models.Trace,
+-                onclause=models.ExperimentRun.trace_id == models.Trace.trace_id,
+-                isouter=True,
+-            )
+-            .join(
+-                models.SpanCost,
+-                onclause=models.Trace.id == models.SpanCost.trace_rowid,
+-                isouter=True,
+-            )
+             .where(
+-                models.ExperimentRun.experiment_id.in_(compare_experiment_rowids),
++                models.ExperimentRun.experiment_id.in_(
++                    [base_experiment_rowid, *compare_experiment_rowids]
++                )
+             )
+-            .group_by(models.ExperimentRun.dataset_example_id)
++            .group_by(models.ExperimentRun.id)
+             .subquery()
+-            .alias("comp_exp_run_mins")
++            .alias("run_metrics")
+         )
+ 
+-        base_experiment_run_latency = LatencyMs(
+-            base_experiment_runs.c.start_time, base_experiment_runs.c.end_time
+-        ).label("base_experiment_run_latency_ms")
++        def best_run_per_example(*, compare: bool, alias: str) -> Any:
++            experiment_filter = (
++                run_metrics.c.experiment_id.in_(compare_experiment_rowids)
++                if compare
++                else run_metrics.c.experiment_id == base_experiment_rowid
++            )
++            return (
++                select(
++                    run_metrics.c.dataset_example_id,
++                    func.min(run_metrics.c.latency_ms).label("min_latency_ms"),
++                    func.min(run_metrics.c.total_tokens).label("min_total_tokens"),
++                    func.min(run_metrics.c.prompt_tokens).label("min_prompt_tokens"),
++                    func.min(run_metrics.c.completion_tokens).label("min_completion_tokens"),
++                    func.min(run_metrics.c.total_cost).label("min_total_cost"),
++                    func.min(run_metrics.c.prompt_cost).label("min_prompt_cost"),
++                    func.min(run_metrics.c.completion_cost).label("min_completion_cost"),
++                )
++                .where(experiment_filter)
++                .group_by(run_metrics.c.dataset_example_id)
++                .subquery()
++                .alias(alias)
++            )
++
++        base_experiment_runs = best_run_per_example(compare=False, alias="base_experiment_runs")
++        compare_experiment_runs = best_run_per_example(compare=True, alias="comp_exp_run_mins")
++        base_experiment_run_latency = base_experiment_runs.c.min_latency_ms
+ 
+         comparisons_query = (
+             select(
+@@ -828,109 +985,109 @@ class Query:
+                     comparison_type="equality",
+                 ).label("num_latency_is_equal"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.total_tokens,
++                    base_column=base_experiment_runs.c.min_total_tokens,
+                     compare_column=compare_experiment_runs.c.min_total_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="improvement",
+                 ).label("num_total_token_count_improved"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.total_tokens,
++                    base_column=base_experiment_runs.c.min_total_tokens,
+                     compare_column=compare_experiment_runs.c.min_total_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="regression",
+                 ).label("num_total_token_count_regressed"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.total_tokens,
++                    base_column=base_experiment_runs.c.min_total_tokens,
+                     compare_column=compare_experiment_runs.c.min_total_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="equality",
+                 ).label("num_total_token_count_is_equal"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.prompt_tokens,
++                    base_column=base_experiment_runs.c.min_prompt_tokens,
+                     compare_column=compare_experiment_runs.c.min_prompt_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="improvement",
+                 ).label("num_prompt_token_count_improved"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.prompt_tokens,
++                    base_column=base_experiment_runs.c.min_prompt_tokens,
+                     compare_column=compare_experiment_runs.c.min_prompt_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="regression",
+                 ).label("num_prompt_token_count_regressed"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.prompt_tokens,
++                    base_column=base_experiment_runs.c.min_prompt_tokens,
+                     compare_column=compare_experiment_runs.c.min_prompt_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="equality",
+                 ).label("num_prompt_token_count_is_equal"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.completion_tokens,
++                    base_column=base_experiment_runs.c.min_completion_tokens,
+                     compare_column=compare_experiment_runs.c.min_completion_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="improvement",
+                 ).label("num_completion_token_count_improved"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.completion_tokens,
++                    base_column=base_experiment_runs.c.min_completion_tokens,
+                     compare_column=compare_experiment_runs.c.min_completion_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="regression",
+                 ).label("num_completion_token_count_regressed"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.completion_tokens,
++                    base_column=base_experiment_runs.c.min_completion_tokens,
+                     compare_column=compare_experiment_runs.c.min_completion_tokens,
+                     optimization_direction="minimize",
+                     comparison_type="equality",
+                 ).label("num_completion_token_count_is_equal"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.total_cost,
++                    base_column=base_experiment_runs.c.min_total_cost,
+                     compare_column=compare_experiment_runs.c.min_total_cost,
+                     optimization_direction="minimize",
+                     comparison_type="improvement",
+                 ).label("num_total_cost_improved"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.total_cost,
++                    base_column=base_experiment_runs.c.min_total_cost,
+                     compare_column=compare_experiment_runs.c.min_total_cost,
+                     optimization_direction="minimize",
+                     comparison_type="regression",
+                 ).label("num_total_cost_regressed"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.total_cost,
++                    base_column=base_experiment_runs.c.min_total_cost,
+                     compare_column=compare_experiment_runs.c.min_total_cost,
+                     optimization_direction="minimize",
+                     comparison_type="equality",
+                 ).label("num_total_cost_is_equal"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.prompt_cost,
++                    base_column=base_experiment_runs.c.min_prompt_cost,
+                     compare_column=compare_experiment_runs.c.min_prompt_cost,
+                     optimization_direction="minimize",
+                     comparison_type="improvement",
+                 ).label("num_prompt_cost_improved"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.prompt_cost,
++                    base_column=base_experiment_runs.c.min_prompt_cost,
+                     compare_column=compare_experiment_runs.c.min_prompt_cost,
+                     optimization_direction="minimize",
+                     comparison_type="regression",
+                 ).label("num_prompt_cost_regressed"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.prompt_cost,
++                    base_column=base_experiment_runs.c.min_prompt_cost,
+                     compare_column=compare_experiment_runs.c.min_prompt_cost,
+                     optimization_direction="minimize",
+                     comparison_type="equality",
+                 ).label("num_prompt_cost_is_equal"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.completion_cost,
++                    base_column=base_experiment_runs.c.min_completion_cost,
+                     compare_column=compare_experiment_runs.c.min_completion_cost,
+                     optimization_direction="minimize",
+                     comparison_type="improvement",
+                 ).label("num_completion_cost_improved"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.completion_cost,
++                    base_column=base_experiment_runs.c.min_completion_cost,
+                     compare_column=compare_experiment_runs.c.min_completion_cost,
+                     optimization_direction="minimize",
+                     comparison_type="regression",
+                 ).label("num_completion_cost_regressed"),
+                 _comparison_count_expression(
+-                    base_column=base_experiment_runs.c.completion_cost,
++                    base_column=base_experiment_runs.c.min_completion_cost,
+                     compare_column=compare_experiment_runs.c.min_completion_cost,
+                     optimization_direction="minimize",
+                     comparison_type="equality",
+diff --git a/tests/unit/server/api/helpers/test_paired_comparison.py b/tests/unit/server/api/helpers/test_paired_comparison.py
+new file mode 100644
+index 0000000..732a232
+--- /dev/null
++++ b/tests/unit/server/api/helpers/test_paired_comparison.py
+@@ -0,0 +1,74 @@
++import pytest
++
++from phoenix.server.api.helpers.paired_comparison import (
++    compare_scores,
++    examples_needed,
++    holm,
++    sign_flip_p_value,
++    verdict,
++)
++
++
++def test_sign_flip_is_exact_for_few_differences() -> None:
++    assert sign_flip_p_value([1, 1, 1, 1, 1]) == pytest.approx(2 / 32)
++    assert sign_flip_p_value([0, 0]) == 1.0
++
++
++def test_identical_experiments_show_no_difference() -> None:
++    scores: dict[str, list[float | None]] = {str(i): [float(i % 3 != 0)] for i in range(30)}
++    result = compare_scores(scores, dict(scores))
++    assert result is not None
++    assert result.difference == 0 and result.p_value == 1.0
++    assert verdict(result, significant=False) == "NO_DETECTABLE_DIFFERENCE"
++
++
++def test_crashing_on_hard_examples_is_not_an_improvement() -> None:
++    # The base scores 1, 1, 0, 0; the compare crashes (None) on the two hard examples.
++    # Averaging only the runs that finished would read 1.0 against 0.5.
++    base: dict[str, list[float | None]] = {"a": [1.0], "b": [1.0], "c": [0.0], "d": [0.0]}
++    compare: dict[str, list[float | None]] = {"a": [1.0], "b": [1.0], "c": [None], "d": [None]}
++    result = compare_scores(base, compare)
++    assert result is not None
++    assert result.compare_mean == 0.5 and result.difference == 0
++    assert result.missing_compare == 2
++
++
++def test_repetitions_count_as_one_example() -> None:
++    base: dict[str, list[float | None]] = {str(i): [0.0, 0.0, 0.0] for i in range(10)}
++    compare: dict[str, list[float | None]] = {str(i): [1.0, 1.0, 1.0] for i in range(10)}
++    result = compare_scores(base, compare)
++    assert result is not None
++    assert result.examples == 10
++    assert result.p_value == pytest.approx(2 / 2**10)
++
++
++def test_holm_keeps_only_what_survives_together() -> None:
++    assert holm([0.01, 0.04, 0.30]) == [True, False, False]
++
++
++def test_examples_needed() -> None:
++    assert examples_needed(0.0, 0.1) is None
++    needed = examples_needed(0.2, 0.05)
++    assert needed is not None and 600 < needed < 700
++
++
++def test_lower_is_better_flips_the_verdict_and_the_worst_score() -> None:
++    base: dict[str, list[float | None]] = {str(i): [1.0] for i in range(10)}
++    compare: dict[str, list[float | None]] = {str(i): [2.0] for i in range(10)}
++    result = compare_scores(base, compare, minimize=True)
++    assert result is not None
++    assert verdict(result, significant=True, minimize=True) == "WORSE"
++    missing = compare_scores({"a": [1.0], "b": [2.0]}, {"a": [None], "b": [2.0]}, minimize=True)
++    assert missing is not None and missing.compare_mean == 2.0  # the highest score is the worst
++
++
++def test_examples_needed_does_not_depend_on_the_scale() -> None:
++    def scores(scale: float, shift: bool) -> dict[str, list[float | None]]:
++        return {
++            str(i): [scale * (float(i % 5) + (0.5 if shift and i % 2 else 0.0))] for i in range(40)
++        }
++
++    a = compare_scores(scores(1.0, False), scores(1.0, True))
++    b = compare_scores(scores(100.0, False), scores(100.0, True))
++    assert a is not None and b is not None
++    assert a.examples_needed is not None and a.examples_needed == b.examples_needed
+diff --git a/tests/unit/server/api/test_queries.py b/tests/unit/server/api/test_queries.py
+index 5b6ca1d..af77609 100644
+--- a/tests/unit/server/api/test_queries.py
++++ b/tests/unit/server/api/test_queries.py
+@@ -13,6 +13,7 @@ from phoenix.db.models import SandboxBackendType
+ from phoenix.db.types.annotation_configs import (
+     CategoricalAnnotationValue,
+     CategoricalOutputConfig,
++    ContinuousAnnotationConfig,
+     OptimizationDirection,
+ )
+ from phoenix.db.types.evaluators import InputMapping
+@@ -1213,6 +1214,379 @@ async def experiment_run_metric_comparison_experiments(
+         return base_experiment, (compare_experiment_1, compare_experiment_2)
+ 
+ 
++@pytest.mark.parametrize("repetitions", [1, 2])
++async def test_experiment_run_metric_comparisons_identical_multi_span_experiments_are_equal(
++    gql_client: AsyncGraphQLClient,
++    db: DbSessionFactory,
++    repetitions: int,
++) -> None:
++    """
++    Two experiments whose runs are identical must compare as equal on every metric.
++
++    Each run's trace has two LLM spans with 100 total tokens each, so every run costs
++    200 tokens in both experiments. With repetitions, the first repetition of each example takes
++    30 seconds and the second 10, in both experiments.
++    """
++    async with db() as session:
++        dataset = models.Dataset(name="identical-experiments-dataset", metadata_={})
++        session.add(dataset)
++        await session.flush()
++        dataset_version = models.DatasetVersion(dataset_id=dataset.id, metadata_={})
++        session.add(dataset_version)
++        await session.flush()
++        examples = [models.DatasetExample(dataset_id=dataset.id) for _ in range(3)]
++        session.add_all(examples)
++        await session.flush()
++        for i, example in enumerate(examples):
++            session.add(
++                models.DatasetExampleRevision(
++                    dataset_example_id=example.id,
++                    dataset_version_id=dataset_version.id,
++                    input={"i": i},
++                    output={},
++                    metadata_={},
++                    revision_kind="CREATE",
++                )
++            )
++        project = models.Project(name="identical-experiments-project")
++        session.add(project)
++        experiments = [
++            models.Experiment(
++                dataset_id=dataset.id,
++                dataset_version_id=dataset_version.id,
++                name=name,
++                repetitions=repetitions,
++                metadata_={},
++                project_name=project.name,
++            )
++            for name in ("base", "compare")
++        ]
++        session.add_all(experiments)
++        await session.flush()
++
++        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
++        for experiment in experiments:
++            for i, example in enumerate(examples):
++                for repetition_number in range(1, repetitions + 1):
++                    # Repetitions run at different times, as they do in practice.
++                    start_time = base_time + timedelta(minutes=10 * i + repetition_number)
++                    end_time = start_time + timedelta(seconds=30 if repetition_number == 1 else 10)
++                    trace = models.Trace(
++                        project_rowid=project.id,
++                        trace_id=str(uuid.uuid4()),
++                        start_time=start_time,
++                        end_time=end_time,
++                    )
++                    session.add(trace)
++                    await session.flush()
++                    for j in range(2):
++                        span = models.Span(
++                            trace_rowid=trace.id,
++                            span_id=str(uuid.uuid4()),
++                            name=f"llm-{j}",
++                            span_kind="LLM",
++                            start_time=start_time,
++                            end_time=end_time,
++                            attributes={},
++                            events=[],
++                            status_code="OK",
++                            status_message="",
++                            cumulative_error_count=0,
++                            cumulative_llm_token_count_prompt=60,
++                            cumulative_llm_token_count_completion=40,
++                        )
++                        session.add(span)
++                        await session.flush()
++                        session.add(
++                            models.SpanCost(
++                                span_rowid=span.id,
++                                trace_rowid=trace.id,
++                                span_start_time=start_time,
++                                total_tokens=100,
++                                prompt_tokens=60,
++                                completion_tokens=40,
++                                total_cost=1.0,
++                                prompt_cost=0.6,
++                                completion_cost=0.4,
++                            )
++                        )
++                    session.add(
++                        models.ExperimentRun(
++                            experiment_id=experiment.id,
++                            dataset_example_id=example.id,
++                            repetition_number=repetition_number,
++                            output={},
++                            start_time=start_time,
++                            end_time=end_time,
++                            trace_id=trace.trace_id,
++                        )
++                    )
++        await session.commit()
++        base_experiment, compare_experiment = experiments
++
++    query = """
++      query ($baseExperimentId: ID!, $compareExperimentIds: [ID!]!) {
++        experimentRunMetricComparisons(
++          baseExperimentId: $baseExperimentId
++          compareExperimentIds: $compareExperimentIds
++        ) {
++          latency { ...counts }
++          totalTokenCount { ...counts }
++          promptTokenCount { ...counts }
++          completionTokenCount { ...counts }
++          totalCost { ...counts }
++          promptCost { ...counts }
++          completionCost { ...counts }
++        }
++      }
++      fragment counts on ExperimentRunMetricComparison {
++        numRunsImproved
++        numRunsRegressed
++        numRunsEqual
++        numRunsWithoutComparison
++      }
++    """
++    response = await gql_client.execute(
++        query=query,
++        variables={
++            "baseExperimentId": str(GlobalID("Experiment", str(base_experiment.id))),
++            "compareExperimentIds": [str(GlobalID("Experiment", str(compare_experiment.id)))],
++        },
++    )
++    assert not response.errors
++    assert response.data is not None
++    all_equal = {
++        "numRunsImproved": 0,
++        "numRunsRegressed": 0,
++        "numRunsEqual": 3,
++        "numRunsWithoutComparison": 0,
++    }
++    assert response.data["experimentRunMetricComparisons"] == {
++        metric: all_equal
++        for metric in (
++            "latency",
++            "totalTokenCount",
++            "promptTokenCount",
++            "completionTokenCount",
++            "totalCost",
++            "promptCost",
++            "completionCost",
++        )
++    }
++
++
++async def test_experiment_annotation_evidence_scores_failed_runs_and_pairs_examples(
++    gql_client: AsyncGraphQLClient,
++    db: DbSessionFactory,
++) -> None:
++    """
++    20 examples. On "correct", the compare experiment matches the base on the 10 easy examples and
++    errors on the 10 hard ones, which the base also gets wrong: averaging only the runs that
++    finished would show it as 1.0 against 0.5. On "polite", the compare experiment is better on
++    every example.
++    """
++    async with db() as session:
++        dataset = models.Dataset(name="evidence-dataset", metadata_={})
++        session.add(dataset)
++        await session.flush()
++        version = models.DatasetVersion(dataset_id=dataset.id, metadata_={})
++        session.add(version)
++        await session.flush()
++        examples = [models.DatasetExample(dataset_id=dataset.id) for _ in range(20)]
++        session.add_all(examples)
++        await session.flush()
++        experiments = [
++            models.Experiment(
++                dataset_id=dataset.id,
++                dataset_version_id=version.id,
++                name=name,
++                repetitions=1,
++                metadata_={},
++                project_name="evidence-project",
++            )
++            for name in ("base", "compare")
++        ]
++        session.add_all(experiments)
++        await session.flush()
++        start = datetime(2024, 1, 1, tzinfo=timezone.utc)
++        for experiment in experiments:
++            is_compare = experiment.name == "compare"
++            for i, example in enumerate(examples):
++                hard = i >= 10
++                run = models.ExperimentRun(
++                    experiment_id=experiment.id,
++                    dataset_example_id=example.id,
++                    repetition_number=1,
++                    output={},
++                    start_time=start,
++                    end_time=start,
++                    error="timeout" if is_compare and hard else None,
++                )
++                session.add(run)
++                await session.flush()
++                annotations = {"polite": 1.0 if is_compare else 0.0}
++                if not (is_compare and hard):
++                    annotations["correct"] = 0.0 if hard else 1.0
++                for name, score in annotations.items():
++                    session.add(
++                        models.ExperimentRunAnnotation(
++                            experiment_run_id=run.id,
++                            name=name,
++                            annotator_kind="CODE",
++                            label=None,
++                            score=score,
++                            explanation=None,
++                            trace_id=None,
++                            error=None,
++                            metadata_={},
++                            start_time=start,
++                            end_time=start,
++                        )
++                    )
++        await session.commit()
++        base, compare = experiments
++
++    response = await gql_client.execute(
++        query="""
++          query ($baseExperimentId: ID!, $compareExperimentIds: [ID!]!) {
++            experimentAnnotationEvidence(
++              baseExperimentId: $baseExperimentId
++              compareExperimentIds: $compareExperimentIds
++            ) {
++              annotationName
++              baseMean
++              compareMean
++              difference
++              pValue
++              verdict
++              examples
++              missingCompare
++            }
++          }
++        """,
++        variables={
++            "baseExperimentId": str(GlobalID("Experiment", str(base.id))),
++            "compareExperimentIds": [str(GlobalID("Experiment", str(compare.id)))],
++        },
++    )
++    assert not response.errors
++    assert response.data is not None
++    by_name = {row["annotationName"]: row for row in response.data["experimentAnnotationEvidence"]}
++    assert by_name["correct"] == {
++        "annotationName": "correct",
++        "baseMean": 0.5,
++        "compareMean": 0.5,
++        "difference": 0.0,
++        "pValue": 1.0,
++        "verdict": "NO_DETECTABLE_DIFFERENCE",
++        "examples": 20,
++        "missingCompare": 10,
++    }
++    # The 10 failed compare runs score as the worst seen on every annotation, "polite" included,
++    # so the gain is 0.5, not 1.0: it is better on every run that finished.
++    assert by_name["polite"]["verdict"] == "BETTER"
++    assert by_name["polite"]["difference"] == 0.5
++
++
++async def test_experiment_annotation_evidence_skips_annotations_one_side_never_scored(
++    gql_client: AsyncGraphQLClient,
++    db: DbSessionFactory,
++) -> None:
++    """An evaluator that ran only on the compare experiment has no baseline: no row, not zeros."""
++    async with db() as session:
++        dataset = models.Dataset(name="one-sided-dataset", metadata_={})
++        session.add(dataset)
++        await session.flush()
++        version = models.DatasetVersion(dataset_id=dataset.id, metadata_={})
++        session.add(version)
++        await session.flush()
++        examples = [models.DatasetExample(dataset_id=dataset.id) for _ in range(20)]
++        session.add_all(examples)
++        await session.flush()
++        session.add(
++            models.AnnotationConfig(
++                name="error_rate",
++                config=ContinuousAnnotationConfig(
++                    type="CONTINUOUS",
++                    optimization_direction=OptimizationDirection.MINIMIZE,
++                ),
++            )
++        )
++        experiments = [
++            models.Experiment(
++                dataset_id=dataset.id,
++                dataset_version_id=version.id,
++                name=name,
++                repetitions=1,
++                metadata_={},
++                project_name="one-sided-project",
++            )
++            for name in ("base", "compare")
++        ]
++        session.add_all(experiments)
++        await session.flush()
++        start = datetime(2024, 1, 1, tzinfo=timezone.utc)
++        for experiment in experiments:
++            is_compare = experiment.name == "compare"
++            for i, example in enumerate(examples):
++                run = models.ExperimentRun(
++                    experiment_id=experiment.id,
++                    dataset_example_id=example.id,
++                    repetition_number=1,
++                    output={},
++                    start_time=start,
++                    end_time=start,
++                )
++                session.add(run)
++                await session.flush()
++                annotations = {"error_rate": 2.0 if is_compare else 1.0}
++                if is_compare:
++                    annotations["only_here"] = i / 19
++                for name, score in annotations.items():
++                    session.add(
++                        models.ExperimentRunAnnotation(
++                            experiment_run_id=run.id,
++                            name=name,
++                            annotator_kind="CODE",
++                            label=None,
++                            score=score,
++                            explanation=None,
++                            trace_id=None,
++                            error=None,
++                            metadata_={},
++                            start_time=start,
++                            end_time=start,
++                        )
++                    )
++        await session.commit()
++        base, compare = experiments
++
++    response = await gql_client.execute(
++        query="""
++          query ($baseExperimentId: ID!, $compareExperimentIds: [ID!]!) {
++            experimentAnnotationEvidence(
++              baseExperimentId: $baseExperimentId
++              compareExperimentIds: $compareExperimentIds
++            ) { annotationName verdict difference }
++          }
++        """,
++        variables={
++            "baseExperimentId": str(GlobalID("Experiment", str(base.id))),
++            "compareExperimentIds": [str(GlobalID("Experiment", str(compare.id)))],
++        },
++    )
++    assert not response.errors
++    assert response.data is not None
++    by_name = {row["annotationName"]: row for row in response.data["experimentAnnotationEvidence"]}
++    assert "only_here" not in by_name
++    # error_rate is configured as minimize: a higher error rate is worse.
++    assert by_name["error_rate"] == {
++        "annotationName": "error_rate",
++        "verdict": "WORSE",
++        "difference": 1.0,
++    }
++
++
+ async def test_secrets_pagination(
+     gql_client: AsyncGraphQLClient,
+     secrets_for_pagination: Any,

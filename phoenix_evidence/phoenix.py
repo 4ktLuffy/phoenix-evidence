@@ -28,29 +28,32 @@ from phoenix_evidence._gate import constant_judge, min_successes_to_pass
 from phoenix_evidence._power import examples_to_pass, pass_probability
 
 
-def pairs_from_span_annotations(annotations: Iterable[Mapping[str, Any]], name: str) -> list[list[Pair]]:
-    """Group HUMAN and LLM annotations named `name` by span: one list of (human, judge) pairs per span.
+def pairs_from_span_annotations(
+    annotations: Iterable[Mapping[str, Any]],
+    name: str,
+    human_name: str | None = None,
+    judge_identifier: str | None = None,
+) -> list[list[Pair]]:
+    """Group HUMAN and LLM annotations by span: one list of (human, judge) pairs per span.
+
+    The judge's labels are the LLM annotations named `name`; the human labels are the HUMAN
+    annotations named `human_name` (default: the same name). A separate human name is the safe
+    choice in Phoenix today: labelling under the judge's name in the span annotation panel
+    rewrites the judge's annotation as a human one (FINDINGS §6).
 
     `annotations` is what `client.spans.get_span_annotations(...)` returns. A span counts only when
     it has both kinds; several humans on one span give several pairs, which are resampled together.
     The latest LLM label per span is used, as Phoenix's own summaries do.
     """
+    annotations = list(annotations)
+    judge, _ = judge_labels(annotations, name, judge_identifier)
+    human_name = human_name or name
     human: dict[str, list[str]] = defaultdict(list)
-    judge: dict[str, tuple[str, str]] = {}
     for a in annotations:
-        if a.get('name') != name:
-            continue
         label = (a.get('result') or {}).get('label')
-        if label is None:
-            continue
-        span = a['span_id']
-        if a.get('annotator_kind') == 'HUMAN':
-            human[span].append(str(label))
-        elif a.get('annotator_kind') == 'LLM':
-            stamp = str(a.get('updated_at') or a.get('created_at') or '')
-            if span not in judge or stamp >= judge[span][0]:
-                judge[span] = (stamp, str(label))
-    return [[(h, judge[span][1]) for h in labels] for span, labels in sorted(human.items()) if span in judge]
+        if label is not None and a.get('annotator_kind') == 'HUMAN' and a.get('name') == human_name:
+            human[a['span_id']].append(str(label))
+    return [[(h, judge[span]) for h in labels] for span, labels in sorted(human.items()) if span in judge]
 
 
 def cases_from_dataset(
@@ -304,7 +307,14 @@ def audit_labels(labels: Sequence[str], threshold: float, alpha: float = 0.05) -
 
 
 def feedback_certificate(
-    client: Any, project: str, annotation_name: str, min_kappa: float = 0.6, alpha: float = 0.05, limit: int = 10_000
+    client: Any,
+    project: str,
+    annotation_name: str,
+    min_kappa: float = 0.6,
+    alpha: float = 0.05,
+    limit: int = 10_000,
+    human_annotation: str | None = None,
+    judge_identifier: str | None = None,
 ) -> dict[str, Any]:
     """Judge-vs-human agreement from the annotations already on a project's spans.
 
@@ -316,17 +326,19 @@ def feedback_certificate(
     from phoenix_evidence._certify import _labels_to_settle
 
     spans = client.spans.get_spans(project_identifier=project, limit=limit)
+    human_name = human_annotation or annotation_name
     annotations = client.spans.get_span_annotations(
-        spans=spans, project_identifier=project, include_annotation_names=[annotation_name]
+        spans=spans, project_identifier=project, include_annotation_names=sorted({annotation_name, human_name})
     )
-    pairs = pairs_from_span_annotations(annotations, annotation_name)
-    kinds: dict[str, dict[str, str]] = defaultdict(dict)
+    pairs = pairs_from_span_annotations(annotations, annotation_name, human_name, judge_identifier)
+    judge, _ = judge_labels(annotations, annotation_name, judge_identifier)
+    human_by_span: dict[str, list[str]] = defaultdict(list)
     for a in annotations:
         label = (a.get('result') or {}).get('label')
-        if label is not None:
-            kinds[a['span_id']].setdefault(a.get('annotator_kind'), str(label))
-    human = {s for s, k in kinds.items() if 'HUMAN' in k}
-    judged = {s for s, k in kinds.items() if 'LLM' in k}
+        if label is not None and a.get('annotator_kind') == 'HUMAN' and a.get('name') == human_name:
+            human_by_span[a['span_id']].append(str(label))
+    human = set(human_by_span)
+    judged = set(judge)
     result = agreement(pairs, alpha=alpha)
     if result.kappa is None:
         verdict = 'NOT_ENOUGH_EVIDENCE'
@@ -336,6 +348,7 @@ def feedback_certificate(
     return {
         'project': project,
         'annotation': annotation_name,
+        'human_annotation': human_name,
         'verdict': verdict,
         'min_kappa': min_kappa,
         'paired_spans': result.examples,
@@ -346,9 +359,171 @@ def feedback_certificate(
         'kappa_interval': list(result.kappa_interval),
         'agreement': str(result),
         'labels_to_settle': _labels_to_settle(result, min_kappa, alpha) if verdict == 'NOT_ENOUGH_EVIDENCE' else None,
+        'judge_identifier': judge_identifier,
+        # One entry per disagreeing (human, judge) pair, the same pairs agreement is computed on.
         'disagreements': [
-            {'span_id': s, 'human': k['HUMAN'], 'judge': k['LLM']}
-            for s, k in sorted(kinds.items())
-            if 'HUMAN' in k and 'LLM' in k and k['HUMAN'] != k['LLM']
+            {'span_id': s, 'human': h, 'judge': judge[s]}
+            for s, labels in sorted(human_by_span.items())
+            for h in labels
+            if s in judge and judge[s] != h
         ],
     }
+
+
+# --- Corrected pass rate from a planned label queue ------------------------------------------------
+
+
+def _instant(value: Any) -> float:
+    """A timestamp as seconds since the epoch, comparing instants rather than strings (offsets differ)."""
+    if isinstance(value, datetime):
+        moment = value
+    elif isinstance(value, str) and value:
+        try:
+            moment = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except ValueError:
+            return float('-inf')
+    else:
+        return float('-inf')
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.timestamp()
+
+
+def judge_labels(
+    annotations: Iterable[Mapping[str, Any]], name: str, identifier: str | None = None
+) -> tuple[dict[str, str], dict[str, float]]:
+    """The judge's label per span, and its doubt: 1.0 where its runs disagree on the span.
+
+    With `identifier`, the label is that judge configuration's (Phoenix's online evaluators write
+    one identifier per configuration); without it, the latest LLM label of any configuration. The
+    doubt always uses every LLM annotation: a span the judge scored more than once (repeated runs,
+    or several configurations) is "unsure" when those labels differ.
+    """
+    latest: dict[str, tuple[float, str]] = {}
+    seen: dict[str, set[str]] = defaultdict(set)
+    for a in annotations:
+        if a.get('name') != name or a.get('annotator_kind') != 'LLM':
+            continue
+        label = (a.get('result') or {}).get('label')
+        if label is None:
+            continue
+        span = a['span_id']
+        seen[span].add(str(label))
+        if identifier is not None and (a.get('identifier') or '') != identifier:
+            continue
+        stamp = _instant(a.get('updated_at') or a.get('created_at'))
+        if span not in latest or stamp >= latest[span][0]:
+            latest[span] = (stamp, str(label))
+    return {s: v[1] for s, v in latest.items()}, {s: float(len(v) > 1) for s, v in seen.items()}
+
+
+def plan_label_queue(
+    client: Any,
+    project: str,
+    name: str,
+    budget: int,
+    seed: int = 0,
+    limit: int = 10_000,
+    create_dataset: bool = True,
+    human_annotation: str | None = None,
+    judge_identifier: str | None = None,
+) -> dict[str, Any]:
+    """Choose which judged spans humans should label, and put them in a Phoenix dataset linked to the spans.
+
+    Spans where the judge's runs disagree are more likely to be chosen; every span keeps a chance.
+    The returned plan (save it) records each span's inclusion probability, which `corrected_rate`
+    needs: the human labels must come from this draw, not from spans people picked themselves.
+    """
+    from phoenix_evidence._ppi import plan_labels
+
+    spans = client.spans.get_spans(project_identifier=project, limit=limit)
+    annotations = client.spans.get_span_annotations(
+        spans=spans, project_identifier=project, include_annotation_names=[name]
+    )
+    labels, doubt = judge_labels(annotations, name, judge_identifier)
+    population = sorted(labels)
+    chosen_idx, pi = plan_labels([doubt.get(s, 0.0) for s in population], budget, seed=seed)
+    chosen = [population[i] for i in chosen_idx]
+    plan = {
+        'project': project, 'annotation': name, 'human_annotation': human_annotation or name, 'judge_identifier': judge_identifier, 'seed': seed, 'budget': budget,
+        'population': population, 'inclusion': dict(zip(population, pi, strict=True)), 'chosen': chosen,
+        'judge': {span: labels[span] for span in population},
+        'judge_unsure_spans': sum(1 for s in population if doubt.get(s)),
+        'created_at': datetime.now(timezone.utc).isoformat(), 'dataset': None,
+    }  # fmt: skip
+    if create_dataset and chosen:
+        import pandas as pd
+
+        # The span link column must not double as an input column: Phoenix refuses the overlap.
+        frame = pd.DataFrame(
+            {
+                'span': chosen,
+                'span_id': chosen,
+                'judge_label': [labels[s] for s in chosen],
+                'inclusion': [plan['inclusion'][s] for s in chosen],
+            }
+        )
+        dataset = client.datasets.create_dataset(
+            name=f'label queue: {project} / {name} ({plan["created_at"][:19]})',
+            dataframe=frame, input_keys=['span'], output_keys=[], metadata_keys=['judge_label', 'inclusion'],
+            span_id_key='span_id',
+            dataset_description=f'Spans chosen by phoenix-evidence for human labels of {name!r}. Label each span in Phoenix.',
+        )  # fmt: skip
+        plan['dataset'] = dataset.id
+    return plan
+
+
+def corrected_rate_from_plan(
+    client: Any,
+    plan: Mapping[str, Any],
+    pass_label: str,
+    limit: int = 10_000,
+    human_annotation: str | None = None,
+) -> dict[str, Any]:
+    """The pass rate humans would give, from the judge on every planned span and humans on the chosen ones."""
+    from phoenix_evidence._ppi import corrected_rate
+
+    project, name = plan['project'], plan['annotation']
+    human_name = human_annotation or plan.get('human_annotation') or name
+    spans = client.spans.get_spans(project_identifier=project, limit=limit)
+    annotations = client.spans.get_span_annotations(
+        spans=spans, project_identifier=project, include_annotation_names=sorted({name, human_name})
+    )
+    # The judge's labels are the ones frozen in the plan: the population and the predictor must not
+    # change after the draw (a later edit, or an annotation overwritten in the UI, would bias it).
+    labels = plan.get('judge') or judge_labels(annotations, name, plan.get('judge_identifier'))[0]
+    population = list(plan['population'])
+    missing_judge = [s for s in population if s not in labels]
+    # Several reviewers on one span: their share of pass labels is the span's human value.
+    votes: dict[str, list[float]] = defaultdict(list)
+    for a in annotations:
+        label = (a.get('result') or {}).get('label')
+        if a.get('name') == human_name and a.get('annotator_kind') == 'HUMAN' and label is not None:
+            votes[a['span_id']].append(float(str(label) == pass_label))
+    index = {s: i for i, s in enumerate(population)}
+    missing = [s for s in plan['chosen'] if s not in votes]
+    labelled = {index[s]: sum(votes[s]) / len(votes[s]) for s in plan['chosen'] if s in votes}
+    out: dict[str, Any] = {
+        'project': project, 'annotation': name, 'pass_label': pass_label, 'spans': len(population),
+        'chosen': len(plan['chosen']), 'labelled': len(labelled), 'still_to_label': missing,
+        'unplanned_human_labels': sorted(set(votes) - set(plan['chosen'])),
+    }  # fmt: skip
+    if missing_judge:
+        out['result'] = None
+        out['refused'] = f'{len(missing_judge)} planned spans have no judge label in the plan'
+        return out
+    if missing or not labelled:
+        # A chosen span without a label is not a zero gap: estimating now would be biased.
+        out['result'] = None
+        out['refused'] = f'{len(missing)} chosen spans are not labelled yet; label them all, then rerun'
+        return out
+    r = corrected_rate(
+        [float(labels[s] == pass_label) for s in population],
+        labelled,
+        inclusion=[plan['inclusion'][s] for s in population],
+    )
+    out.update(
+        estimate=r.estimate, interval=list(r.interval), judge_rate=r.judge_rate,
+        human_only=list(r.human_only), judge_weight=r.weight, result=str(r),
+    )  # fmt: skip
+    return out

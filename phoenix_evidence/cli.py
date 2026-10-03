@@ -3,6 +3,8 @@
     phoenix-evidence compare BASE_EXPERIMENT_ID CANDIDATE_EXPERIMENT_ID [--fail-on-regression]
     phoenix-evidence certify-feedback PROJECT ANNOTATION_NAME [--min-kappa 0.6] [--strict]
     phoenix-evidence audit DATASET --threshold 0.8 [--label-key label]
+    phoenix-evidence plan-labels PROJECT ANNOTATION_NAME --budget 60 --out plan.json
+    phoenix-evidence corrected-rate plan.json --pass-label helpful
 
 The server is the one `phoenix.client.Client()` finds (PHOENIX_BASE_URL, PHOENIX_API_KEY), or
 `--url`. Every command takes `--json PATH`. In GitHub Actions, `compare` also writes its table to
@@ -57,7 +59,15 @@ def _compare(args: argparse.Namespace) -> int:
 def _certify_feedback(args: argparse.Namespace) -> int:
     from phoenix_evidence.phoenix import feedback_certificate
 
-    result = feedback_certificate(_client(args.url), args.project, args.annotation, args.min_kappa, args.alpha)
+    result = feedback_certificate(
+        _client(args.url),
+        args.project,
+        args.annotation,
+        args.min_kappa,
+        args.alpha,
+        human_annotation=args.human_annotation,
+        judge_identifier=args.judge_identifier,
+    )
     print(f'{result["verdict"]}: judge {args.annotation!r} vs human feedback in {args.project!r}')
     print(f'  {result["paired_spans"]} spans carry both labels; {result["spans_with_human_label"]} have a human '
           f'label, {result["spans_with_judge_label"]} a judge label')  # fmt: skip
@@ -72,6 +82,17 @@ def _certify_feedback(args: argparse.Namespace) -> int:
         print(f'  {len(result["disagreements"])} spans where judge and human disagree (first 10):')
         for d in result['disagreements'][:10]:
             print(f'    {d["span_id"]}: human {d["human"]!r}, judge {d["judge"]!r}')
+    if args.export_disagreements and result['disagreements']:
+        import pandas as pd
+
+        frame = pd.DataFrame(result['disagreements'])
+        frame['span'] = frame['span_id']  # the span link column must not double as an input column
+        dataset = _client(args.url).datasets.create_dataset(
+            name=f'disagreements: {args.project} / {args.annotation}',
+            dataframe=frame, input_keys=['span'], output_keys=['human'], metadata_keys=['judge'], span_id_key='span_id',
+            dataset_description='Spans where the judge and a human disagree (phoenix-evidence); for tuning the evaluator.',
+        )  # fmt: skip
+        print(f'  exported {len(frame)} disagreements to Phoenix dataset {dataset.id}')
     _dump(args.json, result)
     bad = {'NOT_TRUSTWORTHY'} | ({'NOT_ENOUGH_EVIDENCE'} if args.strict else set())
     return 1 if result['verdict'] in bad else 0
@@ -98,6 +119,45 @@ def _audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def _plan_labels(args: argparse.Namespace) -> int:
+    from phoenix_evidence.phoenix import plan_label_queue
+
+    plan = plan_label_queue(
+        _client(args.url),
+        args.project,
+        args.annotation,
+        args.budget,
+        seed=args.seed,
+        human_annotation=args.human_annotation,
+        judge_identifier=args.judge_identifier,
+    )
+    Path(args.out).write_text(json.dumps(plan, indent=1))
+    print(f'{len(plan["chosen"])} of {len(plan["population"])} judged spans chosen for human labels '
+          f'({plan["judge_unsure_spans"]} spans where the judge was unsure are favoured); plan saved to {args.out}')  # fmt: skip
+    if plan['dataset']:
+        print(
+            f'  label queue: Phoenix dataset {plan["dataset"]}, linked to the spans; label {plan["human_annotation"]!r} on each'
+        )
+    print('  label the chosen spans, not others: the correction is only unbiased for this draw')
+    return 0
+
+
+def _corrected_rate(args: argparse.Namespace) -> int:
+    from phoenix_evidence.phoenix import corrected_rate_from_plan
+
+    plan = json.loads(Path(args.plan).read_text())
+    out = corrected_rate_from_plan(_client(args.url), plan, args.pass_label, human_annotation=args.human_annotation)
+    print(f'{plan["project"]} / {plan["annotation"]}: {out["labelled"]} of {out["chosen"]} chosen spans labelled')
+    if out.get('refused'):
+        print(f'  no estimate: {out["refused"]}')
+    if out.get('unplanned_human_labels'):
+        print(f'  {len(out["unplanned_human_labels"])} human labels on spans the plan did not choose are not used')
+    if out.get('result'):
+        print(f'  pass rate ({args.pass_label!r}): {out["result"]}')
+    _dump(args.json, out)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog='phoenix-evidence', description=__doc__.split('\n\n')[0])
     parser.add_argument('--url', help='Phoenix base URL (default: PHOENIX_BASE_URL or the client default)')
@@ -118,8 +178,45 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument('--min-kappa', type=float, default=0.6)
     p.add_argument('--alpha', type=float, default=0.05)
     p.add_argument('--strict', action='store_true', help='exit 1 on NOT_ENOUGH_EVIDENCE too')
+    p.add_argument(
+        '--export-disagreements', action='store_true', help='save them as a Phoenix dataset linked to the spans'
+    )
     p.add_argument('--json')
+    p.add_argument(
+        '--human-annotation',
+        help="the name humans label under, if not the judge's (labelling under the judge's own name in Phoenix's span panel overwrites the judge's annotation)",
+    )
+    p.add_argument(
+        '--judge-identifier',
+        help='the judge configuration to use (its annotation identifier); default: the latest judge label of any configuration',
+    )
     p.set_defaults(run=_certify_feedback)
+
+    p = sub.add_parser('plan-labels', help='choose which judged spans humans should label next')
+    p.add_argument('project')
+    p.add_argument('annotation')
+    p.add_argument('--budget', type=int, required=True, help='expected number of human labels')
+    p.add_argument('--seed', type=int, default=0)
+    p.add_argument('--out', default='label-plan.json')
+    p.add_argument(
+        '--human-annotation',
+        help="the name humans label under, if not the judge's (labelling under the judge's own name in Phoenix's span panel overwrites the judge's annotation)",
+    )
+    p.add_argument(
+        '--judge-identifier',
+        help='the judge configuration to use (its annotation identifier); default: the latest judge label of any configuration',
+    )
+    p.set_defaults(run=_plan_labels)
+
+    p = sub.add_parser('corrected-rate', help="the judge's pass rate, corrected with the planned human labels")
+    p.add_argument('plan')
+    p.add_argument('--pass-label', required=True, help='the label that counts as a pass')
+    p.add_argument('--json')
+    p.add_argument(
+        '--human-annotation',
+        help="the name humans label under, if not the judge's (labelling under the judge's own name in Phoenix's span panel overwrites the judge's annotation)",
+    )
+    p.set_defaults(run=_corrected_rate)
 
     p = sub.add_parser('audit', help='what can this labelled dataset decide about a judge?')
     p.add_argument('dataset')

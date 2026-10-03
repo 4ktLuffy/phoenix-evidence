@@ -6,7 +6,7 @@ against your own Phoenix server. It sits on top of Phoenix (no fork) and writes 
 
 ![Phoenix's compare page: a version that crashed on 10% of questions shows as +14.49%](results/screenshots/phoenix_compare_fragile.jpg)
 
-*Phoenix's own compare page, on a version that crashed on 12 of 120 questions: Phoenix averages
+*Phoenix's own compare page, on a version that crashed on 10 of 120 questions: Phoenix averages
 the runs that finished and shows **+14.49%**. `phoenix-evidence compare` scores the crashes and
 says what happened: no detectable gain (+0.042, p = 0.06), and a significant regression in task
 errors. The cost cards read "+0%" for values that do not exist.*
@@ -55,6 +55,25 @@ refusal benchmark: 40 labelled examples {'refused': 23, 'answered': 17}, bar 0.7
   examples for a 75% judge to pass 80% of the time: 662
 ```
 
+**What would humans say the pass rate is, from a judge that scores everything and a few human
+labels?** `plan-labels` picks which judged spans humans should label (more often where the
+judge's runs disagree) and puts them in a Phoenix dataset linked to the spans; once they are
+labelled, `corrected-rate` combines both. In simulation it gives the interval that random human
+labelling would need 1.7 to 2.4 times as many labels for, at 80 to 320 labels ([FINDINGS §11](FINDINGS.md)).
+
+```text
+$ phoenix-evidence plan-labels support-bot helpfulness --budget 150 --out plan.json
+155 of 5000 judged spans chosen for human labels (317 spans where the judge was unsure are favoured)
+$ phoenix-evidence corrected-rate plan.json --pass-label helpful
+  pass rate ('helpful'): 0.744 [0.674, 0.813] from 155 human labels on 5000 traces; the judge alone says 0.700;
+  the human labels alone give [0.634, 0.958]
+```
+
+`certify-feedback --export-disagreements` saves the spans where judge and human disagree as a
+Phoenix dataset, ready for tuning the evaluator. In Python, `switch_impact(old, new, ...)` says
+what would change before you swap judges: how many verdicts flip, how the pass rate moves, and
+which judge agrees with humans more.
+
 Full output of all three against a live Phoenix: [`results/cli_demo.txt`](results/cli_demo.txt)
 (`bench/cli_demo.py` rebuilds it).
 
@@ -94,23 +113,38 @@ to the grader claiming the answer is good (prompt injection), an answer to a dif
 Any Phoenix evaluator works as the judge; `import phoenix_evidence.codex` adds
 `LLM(provider='codex')` to run them on the Codex CLI with no API key.
 
+## Inside Phoenix itself
+
+The same evidence on Phoenix's own compare page, as a working branch of Phoenix
+([`upstream/04-phoenix-with-evidence-branch.patch`](upstream/04-phoenix-with-evidence-branch.patch)):
+a GraphQL field and one line under each compare value. An interval-based acceptance criterion for
+Phoenix's vitest harness is [`upstream/03`](upstream/03-interval-acceptance-criteria.patch).
+
+![Phoenix's compare page with the evidence line](results/screenshots/phoenix_with_evidence.jpg)
+
 ## What it found in Phoenix
 
 On Phoenix's own code and benchmarks ([FINDINGS.md](FINDINGS.md), each with a reproduction; a one-page summary is [`docs/findings.html`](docs/findings.html), built from the result files by `bench/build_findings_page.py`):
 
 1. The experiment compare page reports regressions between identical experiments (fix and test in
    [`upstream/`](upstream/)), and shows "+0%" for changes that do not exist (fix and test).
-2. Two labels in the faithfulness benchmark are reversed; the certificate's label review found them.
-3. Human feedback on a span overwrites the judge label it corrects, or is averaged with it into a
-   number neither gave (0.25 where the judge said 1.0 and the human 0.0).
-4. The benchmark suites' gates pass a judge 5 points below the bar 4-30% of the time, and no suite
-   can tell two good judges apart.
+2. Human feedback on a span overwrites the judge label it corrects (through the API, and in the
+   UI's annotation panel), or is averaged with it into a number neither gave (0.25 where the judge
+   said 1.0 and the human 0.0).
+3. Re-judging 505 benchmark cases twice and reading every consistent disagreement: 3 labels look
+   wrong (two reversed in faithfulness, one tool call that invents dates), and 4 of 31
+   tool-invocation cases hinge on a date the input never anchors. The other flags describe the judge
+   ([`results/label_audit_review.md`](results/label_audit_review.md)).
+4. The benchmark gates pass a judge 5 points below the bar 4-30% of the time, and no suite can tell
+   two good judges apart.
+5. End to end on a live Phoenix, Phoenix's own conciseness evaluator was not trustworthy against
+   reviews entered in its UI (kappa 0.17 [-0.27, 0.47]).
 
 ## Reproduce
 
 ```bash
 git clone https://github.com/4ktLuffy/phoenix-evidence && cd phoenix-evidence
-uv run --with pytest --with pytest-xdist pytest              # 43 tests, no network
+uv run --with pytest --with pytest-xdist pytest              # 54 tests, no network
 uv run python bench/coverage.py                              # the guarantees below (a few minutes)
 uv run python bench/audit_phoenix_suites.py                  # FINDINGS §4, from bench/phoenix_suites/suites.json
 # Live, against a Phoenix server (no model calls; judgments are cached in results/judgments/):

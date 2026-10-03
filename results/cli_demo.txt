@@ -4,19 +4,19 @@ baseline: Phoenix shows exact_match mean 0.842 over 120 evaluations
 tweak: Phoenix shows exact_match mean 0.867 over 120 evaluations
 fragile: Phoenix shows exact_match mean 0.964 over 120 evaluations
 
-$ phoenix-evidence compare RXhwZXJpbWVudDo5 RXhwZXJpbWVudDoxMA==
-**RXhwZXJpbWVudDoxMA==** vs **RXhwZXJpbWVudDo5** (paired on shared examples; a run with no score counts as the worst score seen; Holm-corrected across 2 metrics)
+$ phoenix-evidence compare RXhwZXJpbWVudDoxOA== RXhwZXJpbWVudDoxOQ==
+**RXhwZXJpbWVudDoxOQ==** vs **RXhwZXJpbWVudDoxOA==** (paired on shared examples; a run with no score counts as the worst score seen; Holm-corrected across 2 metrics)
 
 | metric | base | candidate | difference [95%] | p | verdict | smallest detectable | examples needed |
 |---|---|---|---|---|---|---|---|
-| exact_match | 0.842 | 0.867 | +0.025 [+0.000, +0.058] | 0.25 | no detectable difference | none at this size | 312 |
+| exact_match | 0.842 | 0.867 | +0.025 [+0.000, +0.050] | 0.25 | no detectable difference | none at this size | 312 |
 | task_error | 0.000 | 0.000 | +0.000 [+0.000, +0.000] | 1 | no detectable difference | none at this size | — |
 
 regressions: none shown; improvements: none shown
 (exit 0)
 
-$ phoenix-evidence compare RXhwZXJpbWVudDo5 RXhwZXJpbWVudDoxMQ== --fail-on-regression
-**RXhwZXJpbWVudDoxMQ==** vs **RXhwZXJpbWVudDo5** (paired on shared examples; a run with no score counts as the worst score seen; Holm-corrected across 2 metrics)
+$ phoenix-evidence compare RXhwZXJpbWVudDoxOA== RXhwZXJpbWVudDoyMA== --fail-on-regression
+**RXhwZXJpbWVudDoyMA==** vs **RXhwZXJpbWVudDoxOA==** (paired on shared examples; a run with no score counts as the worst score seen; Holm-corrected across 2 metrics)
 
 | metric | base | candidate | difference [95%] | p | verdict | smallest detectable | examples needed |
 |---|---|---|---|---|---|---|---|
@@ -28,25 +28,25 @@ regressions: task_error; improvements: none shown
 
 ## 2. certify-feedback
 
-$ phoenix-evidence certify-feedback support-bot-c08039 helpfulness
-NOT_ENOUGH_EVIDENCE: judge 'helpfulness' vs human feedback in 'support-bot-c08039'
+$ phoenix-evidence certify-feedback support-bot-4b8225 helpfulness
+NOT_ENOUGH_EVIDENCE: judge 'helpfulness' vs human feedback in 'support-bot-4b8225'
   60 spans carry both labels; 60 have a human label, 60 a judge label
   60 examples, 60 judgments
   accuracy 0.87 [0.75, 0.94]
-  kappa 0.71 [0.47, 0.88]
-  balanced accuracy 0.88 [0.77, 0.95]
+  kappa 0.71 [0.47, 0.89]
+  balanced accuracy 0.88 [0.78, 0.95]
     recall on 'helpful': 34/40 [0.70, 0.94]
     recall on 'unhelpful': 18/20 [0.68, 0.99]
   about 268 spans with both labels would likely settle it
   8 spans where judge and human disagree (first 10):
-    03223aa2fe1f445e: human 'helpful', judge 'unhelpful'
-    13229403f7264203: human 'helpful', judge 'unhelpful'
-    2a8cb283f794481f: human 'unhelpful', judge 'helpful'
-    3b14c715dde44fa6: human 'helpful', judge 'unhelpful'
-    4b48b5d914354680: human 'helpful', judge 'unhelpful'
-    612cb4591ffb4374: human 'unhelpful', judge 'helpful'
-    813ec025fd244cea: human 'helpful', judge 'unhelpful'
-    91f518dbd26a433a: human 'helpful', judge 'unhelpful'
+    0e86c5e3fc354008: human 'unhelpful', judge 'helpful'
+    33d26dcb569242a5: human 'helpful', judge 'unhelpful'
+    44be9662e2db4cf0: human 'helpful', judge 'unhelpful'
+    6113ae11c13c4607: human 'unhelpful', judge 'helpful'
+    9f4e0b51c73b445c: human 'helpful', judge 'unhelpful'
+    b4727a42f2aa418b: human 'helpful', judge 'unhelpful'
+    eea923c3cb0f4e36: human 'helpful', judge 'unhelpful'
+    fbc462df647e455d: human 'helpful', judge 'unhelpful'
 (exit 0)
 
 ## 3. audit

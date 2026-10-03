@@ -53,7 +53,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     _STATE.clear()
     # suite -> example -> test node id -> outcome (True, False, or None for a run that never scored)
-    _STATE.update(outcomes=defaultdict(lambda: defaultdict(dict)), settings={})
+    _STATE.update(outcomes=defaultdict(lambda: defaultdict(dict)), settings={}, lost=[], config=config)
 
 
 def _suite(item: pytest.Item) -> str:
@@ -72,8 +72,17 @@ def _example(item: pytest.Item) -> str:
     return item.nodeid[: match.start()] + (f'[{params}]' if params else '')
 
 
+_PROPERTY = 'phoenix_evidence'
+
+
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]) -> Any:
+    """Attach each phase's outcome to its own report.
+
+    Reports travel to the xdist controller one by one, so the outcome cannot be lost with a worker
+    that dies before the end of the session; the controller (or the single process) records it in
+    `pytest_runtest_logreport`. Runs outermost, after Phoenix's own hook has read the report.
+    """
     outcome = yield
     marker = item.get_closest_marker('evidence')
     if marker is None:
@@ -83,24 +92,59 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]) -> 
     threshold = marker.kwargs.get('threshold', marker.args[0] if marker.args else None)
     if threshold is None:
         raise pytest.UsageError(f'{item.nodeid}: @pytest.mark.evidence needs threshold=')
-    _STATE['settings'][suite] = (float(threshold), float(marker.kwargs.get('alpha', 0.05)))
-    runs = _STATE['outcomes'][suite][_example(item)]
+    value: bool | None | str
     if report.when == 'setup':
         # A setup error is a run that never scored. A setup skip (skip/skipif markers,
         # xfail(run=False)) is a case the suite chose not to run, and is left out, as Phoenix's
         # own plugin leaves it out of the experiment.
-        if report.failed:
-            runs[item.nodeid] = None
+        if not report.failed:
+            return
+        value = None
     elif report.when == 'call':
         if report.skipped:  # pytest.skip() in the body, or an expected xfail: it did not pass
-            runs[item.nodeid] = None
+            value = None
         else:
-            runs[item.nodeid] = report.passed
+            value = report.passed
             if report.failed and marker.kwargs.get('soft', True):
                 report.outcome = 'skipped'
                 report.wasxfail = f'counted toward the {suite!r} suite gate (phoenix-evidence)'  # type: ignore[attr-defined]
-    elif report.when == 'teardown' and report.failed and runs.get(item.nodeid):
-        runs[item.nodeid] = False  # pytest reports a teardown error as an error, so it did not pass
+    elif report.when == 'teardown' and report.failed:
+        value = 'teardown_failed'  # pytest reports it as an error, so a passing call did not pass
+    else:
+        return
+    report.user_properties.append(
+        (
+            _PROPERTY,
+            json.dumps(
+                {
+                    'suite': suite,
+                    'example': _example(item),
+                    'threshold': float(threshold),
+                    'alpha': float(marker.kwargs.get('alpha', 0.05)),
+                    'value': value,
+                }
+            ),
+        )  # fmt: skip
+    )
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    config = _STATE.get('config')
+    if config is None or _is_xdist_worker(config):
+        return  # workers only attach outcomes; the controller (or the single process) records them
+    payload = next((v for k, v in report.user_properties if k == _PROPERTY), None)
+    if payload is None:
+        if report.failed and 'crashed' in str(getattr(report, 'longrepr', '')):
+            _STATE['lost'].append(report.nodeid)  # a worker died: its outcome never arrived
+        return
+    data = json.loads(payload)
+    _STATE['settings'][data['suite']] = (data['threshold'], data['alpha'])
+    runs = _STATE['outcomes'][data['suite']][data['example']]
+    if data['value'] == 'teardown_failed':
+        if runs.get(report.nodeid):
+            runs[report.nodeid] = False
+    else:
+        runs[report.nodeid] = data['value']
 
 
 def _decisions() -> dict[str, RateDecision]:
@@ -115,34 +159,17 @@ def _is_xdist_worker(config: pytest.Config) -> bool:
     return hasattr(config, 'workerinput')
 
 
-@pytest.hookimpl(optionalhook=True)
-def pytest_testnodedown(node: Any, error: Any) -> None:
-    """xdist controller: merge a finished worker's outcomes, so the suite is decided once, on all of them."""
-    payload = getattr(node, 'workeroutput', {}).get('phoenix_evidence')
-    if not payload:
-        return
-    data = json.loads(payload)
-    for suite, setting in data['settings'].items():
-        _STATE['settings'][suite] = tuple(setting)
-    for suite, by_example in data['outcomes'].items():
-        for example, runs in by_example.items():
-            _STATE['outcomes'][suite][example].update(runs)
-
-
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if _is_xdist_worker(session.config):
-        # Workers only report; the controller decides (and is the only writer of the report).
-        session.config.workeroutput['phoenix_evidence'] = json.dumps(  # type: ignore[attr-defined]
-            {'settings': _STATE.get('settings', {}), 'outcomes': _STATE.get('outcomes', {})}
-        )
-        return
+        return  # the controller decides, and is the only writer of the report
     decisions = _decisions()
     if not decisions:
         return
     _STATE['decisions'] = decisions
     strict = session.config.getoption('--evidence-strict')
     blocking = {Verdict.FAIL} | ({Verdict.NOT_ENOUGH_EVIDENCE} if strict else set())
-    if any(d.verdict in blocking for d in decisions.values()) and session.exitstatus == 0:
+    lost = _STATE.get('lost', [])
+    if (lost or any(d.verdict in blocking for d in decisions.values())) and session.exitstatus == 0:
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
     path = session.config.getoption('--evidence-report')
     if path:
@@ -152,7 +179,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
                     s: {'verdict': d.verdict.value, 'estimate': d.estimate, 'interval': list(d.interval),
                         'threshold': d.threshold, 'examples': d.examples, 'judgments': d.judgments, 'missing': d.missing}
                     for s, d in decisions.items()
-                },
+                } | ({'_incomplete': {'lost_test_reports': lost}} if lost else {}),
                 indent=1,
             )
         )  # fmt: skip
@@ -165,3 +192,8 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
     terminalreporter.section('phoenix-evidence')
     for suite, decision in sorted(decisions.items()):
         terminalreporter.write_line(f'{suite}: {decision}')
+    lost = _STATE.get('lost', [])
+    if lost:
+        terminalreporter.write_line(
+            f'incomplete: {len(lost)} test reports were lost with a crashed worker; the decisions above omit them'
+        )

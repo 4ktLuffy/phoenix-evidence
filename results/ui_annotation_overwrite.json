@@ -1,0 +1,15 @@
+{
+ "what": "Phoenix (arize-phoenix from PyPI, 2026-10-03) span details > Annotate this span: the conciseness dropdown was pre-filled with the judge's label; changing it rewrote the judge's annotation as a HUMAN one",
+ "span_id": "05b111f899fd4035",
+ "before": [
+  {"annotator_kind": "LLM", "identifier": "judge-low", "label": "verbose"},
+  {"annotator_kind": "LLM", "identifier": "judge-none-run-2", "label": "concise"},
+  {"annotator_kind": "LLM", "identifier": "judge-none-run-1", "label": "concise"}
+ ],
+ "after_changing_the_dropdown_to_verbose": [
+  {"annotator_kind": "LLM", "identifier": "judge-low", "label": "verbose"},
+  {"annotator_kind": "LLM", "identifier": "judge-none-run-2", "label": "concise"},
+  {"annotator_kind": "HUMAN", "identifier": "judge-none-run-1", "label": "verbose"}
+ ],
+ "read_with": "GET /v1/projects/quill-support/span_annotations?span_ids=05b111f899fd4035&include_annotation_names=conciseness"
+}

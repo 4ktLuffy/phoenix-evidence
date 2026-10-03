@@ -1,6 +1,6 @@
 {
  "pytest_exit": 0,
- "pytest_summary": "27 passed, 3 xfailed in 0.44s",
+ "pytest_summary": "27 passed, 3 xfailed in 0.54s",
  "evidence_decision": {
   "verdict": "PASS",
   "estimate": 0.9,

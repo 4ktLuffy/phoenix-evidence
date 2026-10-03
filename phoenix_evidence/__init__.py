@@ -45,3 +45,10 @@ __all__ += [
     'reformat',
     'swapped_answer',
 ]
+
+from phoenix_evidence._ppi import CorrectedRate, corrected_rate, plan_labels  # noqa: E402
+
+__all__ += ['CorrectedRate', 'corrected_rate', 'plan_labels']
+from phoenix_evidence._switch import SwitchImpact, switch_impact  # noqa: E402
+
+__all__ += ['SwitchImpact', 'switch_impact']

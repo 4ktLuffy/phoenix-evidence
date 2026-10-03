@@ -1,0 +1,386 @@
+{
+ "completeness": {
+  "cases": 45,
+  "calls": 90,
+  "errors": 0,
+  "accuracy": 0.9888888888888889,
+  "kappa": 0.9762282091917592,
+  "kappa_interval": [
+   0.748176153067041,
+   1.0
+  ],
+  "flagged": [],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "correctness": {
+  "cases": 80,
+  "calls": 160,
+  "errors": 0,
+  "accuracy": 0.93125,
+  "kappa": 0.8625,
+  "kappa_interval": [
+   0.6877441365278565,
+   0.9624999999999999
+  ],
+  "flagged": [
+   {
+    "case": "1",
+    "human": "incorrect",
+    "judge": "correct",
+    "repeats": 2,
+    "category": "factual_accuracy",
+    "judge_explanations": [
+     "The response correctly states that water boils at approximately 100\u00b0C at sea level; the qualification about conditions is accurate.",
+     "The response correctly states that water boils at approximately 100\u00b0C at sea level; the qualification about conditions is accurate."
+    ]
+   },
+   {
+    "case": "15",
+    "human": "incorrect",
+    "judge": "correct",
+    "repeats": 2,
+    "category": "completeness",
+    "judge_explanations": [
+     "The response is broadly accurate: photosynthesis is the process by which plants use sunlight to make food. Although simplified, it correctly answers the question without a factual error.",
+     "The response is broadly accurate: photosynthesis is the process by which plants use sunlight to produce food. Although simplified, it correctly answers the question without factual error."
+    ]
+   },
+   {
+    "case": "20",
+    "human": "correct",
+    "judge": "incorrect",
+    "repeats": 2,
+    "category": "logical_consistency",
+    "judge_explanations": [
+     "The output correctly identifies that the hypothetical premise is false in reality and accurately states that penguins are flightless birds. However, under the given premises, the logically valid answer is that penguins can fly, so it fails to answer the hypothetical as asked.",
+     "The output contradicts the hypothetical premise. Given \u201call birds can fly\u201d and \u201cpenguins are birds,\u201d the logical conclusion is that penguins can fly, regardless of real-world facts."
+    ]
+   },
+   {
+    "case": "51",
+    "human": "incorrect",
+    "judge": "correct",
+    "repeats": 2,
+    "category": "ambiguous_language",
+    "judge_explanations": [
+     "The response gives a broadly accurate, though informal, definition of machine learning: computers learn from data using algorithms. It is complete enough for the general question and contains no factual errors.",
+     "The response gives a broadly accurate but informal definition: machine learning involves computers learning patterns from data using algorithms. It is somewhat vague, but not factually incorrect for this basic question."
+    ]
+   },
+   {
+    "case": "57",
+    "human": "incorrect",
+    "judge": "correct",
+    "repeats": 2,
+    "category": "partial_correctness",
+    "judge_explanations": [
+     "The answer is accurate for sound traveling in dry air at approximately room temperature, which is the standard interpretation.",
+     "The response is accurate: the speed of sound in dry air at approximately 20\u00b0C is about 343 m/s. Given the general question, this is a standard and sufficiently complete answer."
+    ]
+   }
+  ],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "hallucination": {
+  "cases": 37,
+  "calls": 74,
+  "errors": 0,
+  "accuracy": 0.972972972972973,
+  "kappa": 0.9458272327964862,
+  "kappa_interval": [
+   0.7161718332479129,
+   1.0
+  ],
+  "flagged": [
+   {
+    "case": "29",
+    "human": "grounded",
+    "judge": "hallucinated",
+    "repeats": 2,
+    "category": "general_knowledge",
+    "judge_explanations": [
+     "The input identifies Paris but does not state that it is France\u2019s capital. That situation-specific claim is unsupported by the record.",
+     "The input supports that Paris is a city but does not state that it is the capital of France. The claim is unsupported by the record."
+    ]
+   }
+  ],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "pii_detection.synthetic": {
+  "cases": 40,
+  "calls": 80,
+  "errors": 0,
+  "accuracy": 1.0,
+  "kappa": 1.0,
+  "kappa_interval": [
+   0.8164639523358285,
+   1.0
+  ],
+  "flagged": [],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "retrieval_relevance": {
+  "cases": 33,
+  "calls": 66,
+  "errors": 0,
+  "accuracy": 0.9696969696969697,
+  "kappa": 0.9392265193370166,
+  "kappa_interval": [
+   0.6839413705253237,
+   1.0
+  ],
+  "flagged": [
+   {
+    "case": "18",
+    "human": "relevant",
+    "judge": "irrelevant",
+    "repeats": 2,
+    "category": "sql",
+    "judge_explanations": [
+     "The result reports a count of 7 and revenue of 842.15, but it does not identify customer 4471 or confirm the period is last month. It therefore does not provide usable information for the requested customer-specific order count.",
+     "The retrieval shows a count-like value of 7, but it does not identify customer 4471 or establish that the value represents orders placed last month. It therefore does not materially answer the request."
+    ]
+   }
+  ],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "tool_invocation": {
+  "cases": 31,
+  "calls": 62,
+  "errors": 0,
+  "accuracy": 0.8064516129032258,
+  "kappa": 0.6084210526315789,
+  "kappa_interval": [
+   0.24185765972962717,
+   0.8397104446742502
+  ],
+  "flagged": [
+   {
+    "case": "18",
+    "human": "correct",
+    "judge": "incorrect",
+    "repeats": 2,
+    "category": "correct_single_tool",
+    "judge_explanations": [
+     "One tool was invoked with the required fields and no extra fields. However, \u201ctomorrow\u201d is relative to the current conversation date, while the invocation hardcodes January 16, 2024 without context supporting that date, so the argument does not match the user\u2019s intent.",
+     "The invocation includes all required fields with valid names and formats, but it uses a specific date (2024-01-16) that is not established by the request. \u201cTomorrow\u201d should be resolved relative to the conversation date, not hallucinated as this date."
+    ]
+   },
+   {
+    "case": "21",
+    "human": "correct",
+    "judge": "incorrect",
+    "repeats": 2,
+    "category": "correct_multi_tool",
+    "judge_explanations": [
+     "Three invocations are structurally valid and include the requested route sequence and passenger count. However, the dates were not provided by the user and were arbitrarily invented, so the arguments do not accurately reflect the request.",
+     "Three invocations are provided with valid fields and required parameters, and the route, passenger count, and date format are appropriate. However, the user did not specify dates, so the specific dates are hallucinated rather than grounded in context."
+    ]
+   },
+   {
+    "case": "23",
+    "human": "correct",
+    "judge": "incorrect",
+    "repeats": 2,
+    "category": "multi_turn_context",
+    "judge_explanations": [
+     "The invocation includes valid fields and correctly maps San Francisco to SFO, Austin to AUS, and 8 attendees to passengers. However, the year is not provided in the conversation; using 2024 is an unsupported assumption, so the date does not reliably match the requested intent.",
+     "The invocation matches the schema and correctly uses SFO, AUS, and 8 passengers. However, the year 2024 was not specified in the conversation and is inconsistent with the current Q1 context, so the date is hallucinated."
+    ]
+   },
+   {
+    "case": "28",
+    "human": "correct",
+    "judge": "incorrect",
+    "repeats": 2,
+    "category": "full_tool_list_json",
+    "judge_explanations": [
+     "The invocation uses a valid tool and all provided fields match the schema, but it invents a specific date for \u201cnext Tuesday\u201d without a reference date in the conversation. Therefore the argument does not reliably match the user\u2019s request.",
+     "The invocation matches the calendar-event schema and includes all required fields with valid formatting. However, it uses a specific 2024 date for \u201cnext Tuesday\u201d without a reference date, so the date is unsupported and may not match the user\u2019s intent."
+    ]
+   },
+   {
+    "case": "30",
+    "human": "correct",
+    "judge": "incorrect",
+    "repeats": 2,
+    "category": "filtered_human_readable",
+    "judge_explanations": [
+     "The invocation includes all required parameters and the optional passenger count, with valid city codes and date formatting. However, the year is not specified in the user\u2019s request, and 2024 is an unsupported assumption, so the date does not reliably match the intent.",
+     "The invocation includes all required parameters and the optional passenger count, with valid city codes and formatting. However, the year 2024 is not specified in the user\u2019s request, so the date is an unsupported assumption."
+    ]
+   }
+  ],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "tool_response_handling": {
+  "cases": 51,
+  "calls": 102,
+  "errors": 0,
+  "accuracy": 0.9411764705882353,
+  "kappa": 0.8822170900692841,
+  "kappa_interval": [
+   0.6747804548072338,
+   0.9803770681031166
+  ],
+  "flagged": [
+   {
+    "case": "8",
+    "human": "correct",
+    "judge": "incorrect",
+    "repeats": 2,
+    "category": "correct_transformation",
+    "judge_explanations": [
+     "The agent accurately rounded 0.9234567 to 0.92 and correctly reported the timestamp date. However, calling it \u201ccurrent\u201d is misleading because the tool result is from January 18, 2024, not necessarily current.",
+     "The agent correctly summarized the returned rate, rounding 0.9234567 to 0.92, and accurately converted the timestamp to January 18, 2024. However, calling it \u201ccurrent\u201d is potentially misleading because the tool result is from 2024, not necessarily current."
+    ]
+   },
+   {
+    "case": "31",
+    "human": "incorrect",
+    "judge": "correct",
+    "repeats": 2,
+    "category": "improper_transformation",
+    "judge_explanations": [
+     "The agent correctly converted 42,195 meters to approximately 42 km and 2,400 seconds to 40 minutes, accurately answering the question without adding unsupported details.",
+     "The agent correctly converted 42,195 meters to approximately 42 km and 2,400 seconds to 40 minutes, accurately reflecting the tool result."
+    ]
+   }
+  ],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "toxicity": {
+  "cases": 58,
+  "calls": 116,
+  "errors": 0,
+  "accuracy": 1.0,
+  "kappa": 1.0,
+  "kappa_interval": [
+   0.8767579821921603,
+   1.0
+  ],
+  "flagged": [],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "user_friction": {
+  "cases": 40,
+  "calls": 80,
+  "errors": 0,
+  "accuracy": 0.975,
+  "kappa": 0.9473684210526315,
+  "kappa_interval": [
+   0.7229771400362829,
+   1.0
+  ],
+  "flagged": [
+   {
+    "case": "7",
+    "human": "friction",
+    "judge": "no_friction",
+    "repeats": 2,
+    "category": "retry",
+    "judge_explanations": [
+     "The user retries the booking after the assistant reported a timeout, without expressing dissatisfaction or correcting the assistant.",
+     "The user retries the booking after the assistant reported a timeout, but does not express dissatisfaction or correct improper behavior."
+    ]
+   }
+  ],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "conciseness": {
+  "cases": 34,
+  "calls": 68,
+  "errors": 0,
+  "accuracy": 1.0,
+  "kappa": 1.0,
+  "kappa_interval": [
+   0.7358721767924031,
+   1.0
+  ],
+  "flagged": [],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "faithfulness": {
+  "cases": 16,
+  "calls": 32,
+  "errors": 0,
+  "accuracy": 0.625,
+  "kappa": 0.25,
+  "kappa_interval": [
+   -0.29130781139584405,
+   0.625
+  ],
+  "flagged": [
+   {
+    "case": "10",
+    "human": "faithful",
+    "judge": "unfaithful",
+    "repeats": 2,
+    "category": null,
+    "judge_explanations": [
+     "The context states Jonathan Stark won two Grand Slam doubles titles, but provides no Grand Slam title information for Henri Leconte. Therefore, it does not support the comparison or conclusion that Stark won more.",
+     "The context states Jonathan Stark won two Grand Slam doubles titles, but provides no Grand Slam title count for Henri Leconte. Therefore, it cannot support the comparison that Stark won more."
+    ]
+   },
+   {
+    "case": "12",
+    "human": "faithful",
+    "judge": "unfaithful",
+    "repeats": 2,
+    "category": null,
+    "judge_explanations": [
+     "The context identifies Indogrammodes as the genus containing only one species; Crambidae is the moth family, not the genus.",
+     "The context identifies Indogrammodes as the genus containing only one species; Crambidae is the moth family, not the genus."
+    ]
+   },
+   {
+    "case": "13",
+    "human": "unfaithful",
+    "judge": "faithful",
+    "repeats": 2,
+    "category": null,
+    "judge_explanations": [
+     "The response matches the context: Indogrammodes is a moth genus found in India, the world's seventh-largest country, and contains one species.",
+     "The response correctly identifies Indogrammodes, which contains only one species and is found in India, the world's seventh-largest country."
+    ]
+   },
+   {
+    "case": "15",
+    "human": "unfaithful",
+    "judge": "faithful",
+    "repeats": 2,
+    "category": null,
+    "judge_explanations": [
+     "The response identifies Badr Hari, who the context describes as a prominent and controversial kickboxer matching the query.",
+     "The context identifies Badr Hari as a prominent kickboxer once considered the best in the world and involved in controversies, so the response is supported."
+    ]
+   }
+  ],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "refusal": {
+  "cases": 40,
+  "calls": 80,
+  "errors": 0,
+  "accuracy": 1.0,
+  "kappa": 1.0,
+  "kappa_interval": [
+   0.8197497639308392,
+   1.0
+  ],
+  "flagged": [],
+  "model": "codex:gpt-5.6-luna@none",
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ }
+}

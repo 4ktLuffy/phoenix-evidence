@@ -6,9 +6,9 @@ Builds, in a running Phoenix, the three situations the commands are for, with de
 so the truth is known:
 
 1. compare: a 120-question dataset and three experiments scored by an exact-match evaluator:
-   `baseline` (right on 96), `tweak` (right on 4 more: a real but small gain), and `fragile`
-   (right on the baseline's 96 plus 6 more, but it raises on 12 of the questions the baseline got
-   wrong, so Phoenix averages it over the 108 runs that finished);
+   `baseline` (right on 101), `tweak` (right on 3 more: a real but small gain), and `fragile`
+   (right on the baseline's 101 plus 5 more, but it raises on 10 of the questions the baseline got
+   wrong, so Phoenix averages it over the 110 runs that finished: 106/110 = 0.964);
 2. certify-feedback: a project of 60 traced answers, each labelled by an LLM judge (under its own
    identifier) and by a human, agreeing on 52;
 3. audit: the refusal benchmark dataset written by bench/write_back_demo.py, if present.

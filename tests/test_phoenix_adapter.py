@@ -126,3 +126,157 @@ def test_an_evaluator_in_one_experiment_only_is_reported():
     result = compare_experiments(FakeClient([a, b]), 'a', 'b')
     assert result.only_in == {'correct': 'base', 'renamed': 'candidate'}
     assert 'scored only in the base experiment' in result.markdown()
+
+
+def judged_project(n=400, seed=0):
+    """Spans with two judge runs (disagreeing on some) and a human truth for each."""
+    import random
+
+    rng = random.Random(seed)
+    rows, truth = [], {}
+    for k in range(n):
+        span = f's{k}'
+        human = 'good' if rng.random() < 0.7 else 'bad'
+        judge = human if rng.random() < 0.85 else ('bad' if human == 'good' else 'good')
+        second = judge if rng.random() > 0.1 else ('bad' if judge == 'good' else 'good')
+        truth[span] = human
+        for ident, label in (('run-1', judge), ('run-2', second)):
+            rows.append({'span_id': span, 'name': 'q', 'annotator_kind': 'LLM', 'identifier': ident,
+                         'result': {'label': label}, 'updated_at': ident})  # fmt: skip
+    return rows, truth
+
+
+class RecordingDatasets:
+    def __init__(self):
+        self.created = []
+
+    def create_dataset(self, **kwargs):
+        frame = kwargs['dataframe']
+        # Phoenix refuses a span link column that is also an input column.
+        assert kwargs['span_id_key'] not in kwargs['input_keys'], 'span link column overlaps an input column'
+        self.created.append(frame)
+        return SimpleNamespace(id=f'ds-{len(self.created)}')
+
+
+def test_plan_then_correct_recovers_the_human_rate():
+    pytest = __import__('pytest')
+    pytest.importorskip('pandas')
+    from phoenix_evidence.phoenix import corrected_rate_from_plan, plan_label_queue
+
+    rows, truth = judged_project()
+    client = FakeClient(annotations=rows)
+    client.datasets = RecordingDatasets()
+    plan = plan_label_queue(client, 'p', 'q', budget=80, seed=3)
+    assert plan['dataset'] == 'ds-1' and len(client.datasets.created[0]) == len(plan['chosen'])
+    assert plan['judge_unsure_spans'] > 0
+    unsure = {s for s in plan['population'] if plan['inclusion'][s] > min(plan['inclusion'].values())}
+    assert all(
+        plan['inclusion'][s] >= max(plan['inclusion'][t] for t in plan['population'] if t not in unsure) for s in unsure
+    )
+
+    # Before any human labels: nothing to estimate, and it says what is left to label.
+    out = corrected_rate_from_plan(client, plan, 'good')
+    assert out['result'] is None and len(out['still_to_label']) == len(plan['chosen'])
+
+    labelled = rows + [{'span_id': s, 'name': 'q', 'annotator_kind': 'HUMAN', 'result': {'label': truth[s]}}
+                       for s in plan['chosen']]  # fmt: skip
+    out = corrected_rate_from_plan(FakeClient(annotations=labelled), plan, 'good')
+    true_rate = sum(v == 'good' for v in truth.values()) / len(truth)
+    assert out['interval'][0] <= true_rate <= out['interval'][1]
+    assert out['still_to_label'] == []
+
+
+def test_human_labels_under_a_separate_name_pair_with_the_judge():
+    rows = []
+    for k in range(10):
+        rows.append(
+            {
+                'span_id': f's{k}',
+                'name': 'q',
+                'annotator_kind': 'LLM',
+                'identifier': 'judge',
+                'result': {'label': 'good'},
+            }
+        )
+        rows.append(
+            {
+                'span_id': f's{k}',
+                'name': 'q_review',
+                'annotator_kind': 'HUMAN',
+                'result': {'label': 'good' if k < 8 else 'bad'},
+            }
+        )
+    assert pairs_from_span_annotations(rows, 'q') == []  # no HUMAN under the judge's name
+    pairs = pairs_from_span_annotations(rows, 'q', human_name='q_review')
+    assert len(pairs) == 10 and sum(h == j for [(h, j)] in pairs) == 8
+    result = feedback_certificate(FakeClient(annotations=rows), 'p', 'q', human_annotation='q_review')
+    assert result['paired_spans'] == 10 and len(result['disagreements']) == 2
+
+
+def test_one_judge_configuration_is_used_everywhere():
+    rows = []
+    for k in range(20):
+        human = 'good' if k % 2 else 'bad'
+        rows.append({'span_id': f's{k}', 'name': 'q', 'annotator_kind': 'HUMAN', 'result': {'label': human}})
+        rows.append({'span_id': f's{k}', 'name': 'q', 'annotator_kind': 'LLM', 'identifier': 'strict',
+                     'result': {'label': human}, 'updated_at': '1'})  # fmt: skip
+        rows.append({'span_id': f's{k}', 'name': 'q', 'annotator_kind': 'LLM', 'identifier': 'lenient',
+                     'result': {'label': 'good'}, 'updated_at': '2'})  # fmt: skip
+    strict = feedback_certificate(FakeClient(annotations=rows), 'p', 'q', judge_identifier='strict')
+    assert strict['disagreements'] == [] and strict['kappa'] == 1.0
+    latest = feedback_certificate(FakeClient(annotations=rows), 'p', 'q')  # the lenient one is newer
+    disagreeing = sum(1 for [(h, j)] in pairs_from_span_annotations(rows, 'q') if h != j)
+    assert len(latest['disagreements']) == disagreeing == 10
+
+
+def test_review_2_corrected_rate_refuses_what_would_bias_it():
+    pytest = __import__('pytest')
+    pytest.importorskip('pandas')
+    from phoenix_evidence.phoenix import corrected_rate_from_plan
+
+    spans = [f's{k}' for k in range(100)]
+    plan = {'project': 'p', 'annotation': 'q', 'population': spans, 'chosen': spans,
+            'inclusion': dict.fromkeys(spans, 1.0), 'judge': dict.fromkeys(spans, 'no')}  # fmt: skip
+    half = [{'span_id': s, 'name': 'q', 'annotator_kind': 'HUMAN', 'result': {'label': 'yes'}} for s in spans[:50]]
+    out = corrected_rate_from_plan(FakeClient(annotations=half), plan, 'yes')
+    assert out['result'] is None and '50 chosen spans' in out['refused']  # not 0.5 [0.385, 0.615]
+
+    # The judge's labels are frozen in the plan: losing an annotation later does not shrink the population.
+    plan2 = {'project': 'p', 'annotation': 'q', 'population': ['a', 'b'], 'chosen': ['a', 'b'],
+             'inclusion': {'a': 1.0, 'b': 1.0}, 'judge': {'a': 'yes', 'b': 'yes'}}  # fmt: skip
+    rows = [{'span_id': 'a', 'name': 'q', 'annotator_kind': 'HUMAN', 'result': {'label': 'yes'}},
+            {'span_id': 'b', 'name': 'q', 'annotator_kind': 'HUMAN', 'result': {'label': 'no'}}]  # fmt: skip
+    out = corrected_rate_from_plan(FakeClient(annotations=rows), plan2, 'yes')
+    assert out['spans'] == 2 and out['estimate'] == 0.5
+
+
+def test_review_2_several_reviewers_are_counted_the_same_everywhere():
+    rows = [
+        {'span_id': 's', 'name': 'q', 'annotator_kind': 'LLM', 'identifier': 'j', 'result': {'label': 'yes'}},
+        {'span_id': 's', 'name': 'q', 'annotator_kind': 'HUMAN', 'result': {'label': 'yes'}},
+        {'span_id': 's', 'name': 'q', 'annotator_kind': 'HUMAN', 'result': {'label': 'no'}},
+    ]
+    result = feedback_certificate(FakeClient(annotations=rows), 'p', 'q')
+    assert len(result['disagreements']) == 1  # the 'no' reviewer, matching accuracy 0.5
+
+
+def test_review_2_latest_compares_instants_not_strings():
+    from phoenix_evidence.phoenix import judge_labels
+
+    rows = [
+        {
+            'span_id': 's',
+            'name': 'q',
+            'annotator_kind': 'LLM',
+            'result': {'label': 'old'},
+            'updated_at': '2026-01-01T10:00:00+02:00',
+        },
+        {
+            'span_id': 's',
+            'name': 'q',
+            'annotator_kind': 'LLM',
+            'result': {'label': 'new'},
+            'updated_at': '2026-01-01T09:00:00+00:00',
+        },
+    ]
+    assert judge_labels(rows, 'q')[0] == {'s': 'new'}

@@ -1,0 +1,12 @@
+{
+ "old": "judge-none-run-1 (codex gpt-5.6-luna, no reasoning)",
+ "new": "judge-low (codex gpt-5.6-luna, low reasoning)",
+ "items": 40,
+ "flips": 8,
+ "flip_interval": [
+  0.09052240939999057,
+  0.3564780186792346
+ ],
+ "pass_rate": "NO_DETECTABLE_DIFFERENCE: B-A = +0.100 [-0.025, +0.250], p = 0.289, 40 paired examples; smallest detectable difference 0.192; examples needed for the observed difference: 155",
+ "human_agreement": "NO_DETECTABLE_DIFFERENCE: B-A = +0.118 [-0.176, +0.412], p = 0.727, 17 paired examples; smallest detectable difference 0.434; examples needed for the observed difference: 265"
+}

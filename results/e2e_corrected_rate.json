@@ -1,0 +1,22 @@
+{
+ "project": "quill-support",
+ "annotation": "conciseness",
+ "pass_label": "concise",
+ "spans": 40,
+ "chosen": 17,
+ "labelled": 17,
+ "still_to_label": [],
+ "unplanned_human_labels": [],
+ "estimate": 0.77,
+ "interval": [
+  0.4047706899341229,
+  1.0
+ ],
+ "judge_rate": 0.45,
+ "human_only": [
+  0.30703687004688573,
+  1.0
+ ],
+ "judge_weight": 1.0,
+ "result": "0.770 [0.405, 1.000] from 17 human labels on 40 traces; the judge alone says 0.450; the human labels alone give [0.307, 1.000]"
+}
