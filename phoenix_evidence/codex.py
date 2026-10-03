@@ -113,7 +113,7 @@ async def _run(client: CodexClient, prompt: str, schema: dict[str, Any] | None) 
     )  # fmt: skip
     try:
         log, _ = await asyncio.wait_for(process.communicate(), client.timeout)
-    except TimeoutError:
+    except asyncio.TimeoutError:  # the builtin TimeoutError only from 3.11
         process.kill()
         raise
     text = log.decode(errors='replace')

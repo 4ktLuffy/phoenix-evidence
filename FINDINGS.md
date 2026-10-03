@@ -32,6 +32,15 @@ repetitions) fails on `main` and passes with the fix on SQLite and Postgres; the
 comparison test (two compare experiments, missing runs and costs) still passes; ruff, ruff format
 and mypy are clean.
 
+What it looks like on Phoenix's own compare page (released `arize-phoenix`, without the fix;
+`bench/cli_demo.py`): a version that crashed on 12 of 120 questions shows as **+14.49%** on
+exact match (section 5), the cost cards read "+0%" for costs that do not exist (section 2), and
+latency shows **65 improved, 48 regressed** between two tasks that both average 0 ms, because any
+difference counts, however small (no tolerance band, `_comparison_count_expression`,
+`queries.py:2011-2045`).
+
+![Phoenix compare page](results/screenshots/phoenix_compare_fragile.jpg)
+
 Two questions for maintainers, raised by an independent review of the fix:
 
 - **Unit.** The counts are per example, before and after the fix (both queries group by dataset

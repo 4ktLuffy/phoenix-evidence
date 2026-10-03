@@ -1,36 +1,65 @@
 # phoenix-evidence
 
-**Margins of error for the numbers Arize Phoenix shows, and a verdict you can gate on.**
+**Is version B really better? Can this judge be trusted? Can this dataset decide anything?**
+Answers for [Arize Phoenix](https://github.com/Arize-ai/phoenix) users, with margins of error,
+against your own Phoenix server. It sits on top of Phoenix (no fork) and writes back into it.
 
-Phoenix tells you a judge scored 0.81, version B is 4 points better, a suite passed its 0.7 gate.
-It does not tell you whether 16 cases can show any of that. This package does, on top of Phoenix
-(it does not fork it or replace its UI):
+![Phoenix's compare page: a version that crashed on 10% of questions shows as +14.49%](results/screenshots/phoenix_compare_fragile.jpg)
 
-- **Certify a judge** against human labels: agreement with a margin of error, controls a sound
-  judge must survive (a reformatted answer, a note to the grader claiming the answer is good, an
-  answer to a different question), consistency over repeats, and a verdict: TRUSTWORTHY,
-  NOT_TRUSTWORTHY or NOT_ENOUGH_EVIDENCE, with how many more labels would likely settle it.
-- **Gate CI on evidence**: a pytest plugin for Phoenix's pytest integration that decides each
-  suite on an interval, counts crashed runs as failures, and counts repetitions of one example
-  once.
-- **Compare two experiments honestly**: paired on shared examples, crashes scored instead of
-  dropped, with the smallest difference the dataset can detect and the size it would need.
-- **Run Phoenix's own evaluators on Codex** (`LLM(provider='codex')`), no API key.
+*Phoenix's own compare page, on a version that crashed on 12 of 120 questions: Phoenix averages
+the runs that finished and shows **+14.49%**. `phoenix-evidence compare` scores the crashes and
+says what happened: no detectable gain (+0.042, p = 0.06), and a significant regression in task
+errors. The cost cards read "+0%" for values that do not exist.*
 
-What it found in Phoenix itself, with reproductions and fixes: [FINDINGS.md](FINDINGS.md).
+## Every day, from a shell or CI
 
-```python
-from phoenix_evidence import Case, certify, grader_note, reformat, decide_rate, compare
-
-cert = await certify(judge, cases, controls=[reformat(), grader_note('correct')], repeats=2)
-print(cert)  # a verdict, each check on its interval; real ones in FINDINGS.md
-
-decide_rate([[True]] * 13 + [[False]] * 3, threshold=0.7)
-# NOT_ENOUGH_EVIDENCE: 0.812 [0.544, 0.960] vs 0.7 on 16 examples   (Phoenix's gate says PASS)
-
-compare(baseline_scores, candidate_scores)
-# NO_DETECTABLE_DIFFERENCE: B-A = +0.040 [+0.000, +0.100], p = 0.5; ... needed: 194
+```bash
+pip install "phoenix-evidence[phoenix] @ git+https://github.com/4ktLuffy/phoenix-evidence"
+export PHOENIX_BASE_URL=http://localhost:6006   # and PHOENIX_API_KEY if your server needs one
 ```
+
+**Is the candidate experiment really better than the baseline?** Paired on the examples both ran,
+every evaluator at once (Holm-corrected), a run with no score counted as the worst score seen,
+and how many examples it would take to tell:
+
+```text
+$ phoenix-evidence compare <baseline-experiment-id> <candidate-experiment-id> --fail-on-regression
+| metric      | base  | candidate | difference [95%]        | p       | verdict                  | smallest detectable | examples needed |
+| exact_match | 0.842 | 0.883     | +0.042 [+0.008, +0.083] | 0.0625  | no detectable difference | none at this size   | 186             |
+| task_error  | 0.000 | 0.083     | +0.083 [+0.033, +0.133] | 0.00195 | worse                    | 0.073               | 92              |
+regressions: task_error; improvements: none shown          (exit 1)
+```
+
+In GitHub Actions the table also goes to the job summary.
+
+**Can my judge be trusted, against the human feedback already in Phoenix?** Pairs each span's
+HUMAN label with the judge's label of the same name, decides agreement on an interval, and lists
+the spans where they disagree:
+
+```text
+$ phoenix-evidence certify-feedback support-bot helpfulness
+NOT_ENOUGH_EVIDENCE: judge 'helpfulness' vs human feedback in 'support-bot'
+  60 spans carry both labels; 60 have a human label, 60 a judge label
+  accuracy 0.87 [0.75, 0.94]
+  kappa 0.71 [0.47, 0.89]
+  about 268 spans with both labels would likely settle it
+  8 spans where judge and human disagree (first 10): ...
+```
+
+**Can this labelled dataset decide anything about a judge, before you run one?**
+
+```text
+$ phoenix-evidence audit "refusal benchmark" --threshold 0.7
+refusal benchmark: 40 labelled examples {'refused': 23, 'answered': 17}, bar 0.7
+  to pass on an interval a judge needs 34/40 correct
+  examples for a 75% judge to pass 80% of the time: 662
+```
+
+Full output of all three against a live Phoenix: [`results/cli_demo.txt`](results/cli_demo.txt)
+(`bench/cli_demo.py` rebuilds it).
+
+**Gate a pytest suite on evidence, not on every case or a bare average.** With Phoenix's
+pytest plugin, add one marker:
 
 ```python
 @pytest.mark.phoenix(dataset='refunds', repetitions=3)
@@ -39,9 +68,56 @@ compare(baseline_scores, candidate_scores)
 def test_refund(case): ...
 ```
 
-`pytest --evidence-strict` fails the run on NOT_ENOUGH_EVIDENCE as well as FAIL; without it, a
-suite too small to decide is reported but does not fail CI. Works with `pytest -n` (xdist): the
-workers' outcomes are decided together on the controller.
+Each suite is decided once, on an exact interval: PASS, FAIL (CI fails) or NOT_ENOUGH_EVIDENCE
+(reported; CI fails with `--evidence-strict`). A failing case counts toward the suite instead of
+failing CI on its own (`soft=False` restores that); a crash counts as a failure; repetitions of
+one example count once; it works with `pytest -n`. Phoenix's own plugin still records every
+case's real outcome (`bench/gate_alongside_phoenix.py` checks it against a live server).
+
+## Certify a judge before you gate on it
+
+```python
+from phoenix_evidence import Case, certify, grader_note, reformat, swapped_answer
+from phoenix_evidence.phoenix import write_certificate
+
+cert = await certify(
+    judge, cases, controls=[reformat(), grader_note('correct'), swapped_answer('incorrect')], repeats=2
+)
+print(cert)  # TRUSTWORTHY / NOT_TRUSTWORTHY / NOT_ENOUGH_EVIDENCE, each check on its interval
+cert.label_review()  # examples where the judge consistently disagrees with the label: re-check these
+write_certificate(client, cert, cases, dataset_name='refusal benchmark')  # into Phoenix, as an experiment
+```
+
+A certificate checks agreement with human labels (kappa and balanced accuracy, by example),
+consistency over repeats, and controls a sound judge must survive: a reformatted answer, a note
+to the grader claiming the answer is good (prompt injection), an answer to a different question.
+Any Phoenix evaluator works as the judge; `import phoenix_evidence.codex` adds
+`LLM(provider='codex')` to run them on the Codex CLI with no API key.
+
+## What it found in Phoenix
+
+On Phoenix's own code and benchmarks ([FINDINGS.md](FINDINGS.md), each with a reproduction; a one-page summary is [`docs/findings.html`](docs/findings.html), built from the result files by `bench/build_findings_page.py`):
+
+1. The experiment compare page reports regressions between identical experiments (fix and test in
+   [`upstream/`](upstream/)), and shows "+0%" for changes that do not exist (fix and test).
+2. Two labels in the faithfulness benchmark are reversed; the certificate's label review found them.
+3. Human feedback on a span overwrites the judge label it corrects, or is averaged with it into a
+   number neither gave (0.25 where the judge said 1.0 and the human 0.0).
+4. The benchmark suites' gates pass a judge 5 points below the bar 4-30% of the time, and no suite
+   can tell two good judges apart.
+
+## Reproduce
+
+```bash
+git clone https://github.com/4ktLuffy/phoenix-evidence && cd phoenix-evidence
+uv run --with pytest --with pytest-xdist pytest              # 43 tests, no network
+uv run python bench/coverage.py                              # the guarantees below (a few minutes)
+uv run python bench/audit_phoenix_suites.py                  # FINDINGS §4, from bench/phoenix_suites/suites.json
+# Live, against a Phoenix server (no model calls; judgments are cached in results/judgments/):
+PHOENIX=/path/to/phoenix npx tsx bench/phoenix_suites/extract.mjs   # case texts, kept out of the repo
+uv run --extra phoenix python bench/certify_phoenix_suites.py       # FINDINGS §8, from cache
+PHOENIX_BASE_URL=http://localhost:6006 uv run --extra phoenix python bench/cli_demo.py
+```
 
 ## How the guarantees were checked
 

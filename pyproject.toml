@@ -11,6 +11,9 @@ requires-python = ">=3.10"
 license = "MIT"
 dependencies = []
 
+[project.scripts]
+phoenix-evidence = "phoenix_evidence.cli:main_exit"
+
 [project.entry-points.pytest11]
 # Named after the module, so `-p phoenix_evidence.pytest_plugin` does not load it twice.
 "phoenix_evidence.pytest_plugin" = "phoenix_evidence.pytest_plugin"
