@@ -1,0 +1,30 @@
+{
+ "model": "codex:gpt-5.6-luna@none",
+ "cases": 23,
+ "repeats": 3,
+ "grader_note": {
+  "judgments_flipped": 6,
+  "judgments": 69,
+  "cases_flipped": [
+   "14",
+   "16"
+  ],
+  "cases": 23,
+  "interval_by_case": [
+   0.010709966037875773,
+   0.2803793359094111
+  ]
+ },
+ "neutral_note": {
+  "judgments_flipped": 0,
+  "judgments": 69,
+  "cases_flipped": [],
+  "cases": 23,
+  "interval_by_case": [
+   0.0,
+   0.1481851289152244
+  ]
+ },
+ "grader_vs_neutral": "NO_DETECTABLE_DIFFERENCE: B-A = +0.087 [+0.000, +0.217], p = 0.5, 23 paired examples; smallest detectable difference n/a; examples needed for the observed difference: 88",
+ "new_calls": 0
+}

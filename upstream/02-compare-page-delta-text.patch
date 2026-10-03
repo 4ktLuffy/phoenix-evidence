@@ -1,0 +1,129 @@
+diff --git a/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx b/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx
+index 6fcee87..bfb83e6 100644
+--- a/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx
++++ b/js/app/src/pages/experiment/ExperimentCompareMetricsPage.tsx
+@@ -33,6 +33,7 @@ import type {
+   ExperimentCompareMetricsPage_experiments$key,
+ } from "./__generated__/ExperimentCompareMetricsPage_experiments.graphql";
+ import type { ExperimentComparePageQueriesCompareMetricsQuery as ExperimentComparePageQueriesCompareMetricsQueryType } from "./__generated__/ExperimentComparePageQueriesCompareMetricsQuery.graphql";
++import { formatPercentageDelta } from "./utils";
+ 
+ const thumbIconCSS = css`
+   font-size: var(--global-text-font-size-l);
+@@ -595,20 +596,15 @@ function CompareExperimentMetric({
+   formatter?: (value: MetricValue) => string;
+ }) {
+   const valueText = useMemo(() => formatter(value), [formatter, value]);
+-  const percentageDeltaText = useMemo(() => {
+-    let percentageDeltaText: string = "+0%";
+-    if (baseExperimentValue == null || value == null) {
+-      return percentageDeltaText;
+-    }
+-    const delta = value - baseExperimentValue;
+-    const sign = delta >= 0 ? "+" : "-";
+-    if (baseExperimentValue !== 0) {
+-      const absolutePercentageDelta =
+-        Math.abs(delta / baseExperimentValue) * 100;
+-      percentageDeltaText = `${sign}${percentFormatter(absolutePercentageDelta)}`;
+-    }
+-    return percentageDeltaText;
+-  }, [baseExperimentValue, value]);
++  const percentageDeltaText = useMemo(
++    () =>
++      formatPercentageDelta({
++        value,
++        baseValue: baseExperimentValue,
++        formatPercent: percentFormatter,
++      }),
++    [baseExperimentValue, value]
++  );
+ 
+   return (
+     <Flex direction="row" alignItems="center" gap="size-100">
+diff --git a/js/app/src/pages/experiment/__tests__/utils.test.ts b/js/app/src/pages/experiment/__tests__/utils.test.ts
+index 94c9509..6c1973d 100644
+--- a/js/app/src/pages/experiment/__tests__/utils.test.ts
++++ b/js/app/src/pages/experiment/__tests__/utils.test.ts
+@@ -1,4 +1,7 @@
+-import { calculateAnnotationScorePercentile } from "../utils";
++import {
++  calculateAnnotationScorePercentile,
++  formatPercentageDelta,
++} from "../utils";
+ 
+ describe("calculateAnnotationScorePercentile", () => {
+   describe("with default min/max (0 to 1 range)", () => {
+@@ -61,3 +64,37 @@ describe("calculateAnnotationScorePercentile", () => {
+     });
+   });
+ });
++
++describe("formatPercentageDelta", () => {
++  const formatPercent = (value: number) => `${value.toFixed(2)}%`;
++
++  it("formats increases and decreases relative to the base value", () => {
++    expect(
++      formatPercentageDelta({ value: 1.5, baseValue: 1, formatPercent })
++    ).toEqual("+50.00%");
++    expect(
++      formatPercentageDelta({ value: 0.5, baseValue: 1, formatPercent })
++    ).toEqual("-50.00%");
++    expect(
++      formatPercentageDelta({ value: 1, baseValue: 1, formatPercent })
++    ).toEqual("+0.00%");
++  });
++
++  it("does not report a change from a base value of 0 as +0%", () => {
++    expect(
++      formatPercentageDelta({ value: 0.9, baseValue: 0, formatPercent })
++    ).toEqual("--");
++    expect(
++      formatPercentageDelta({ value: 0, baseValue: 0, formatPercent })
++    ).toEqual("+0.00%");
++  });
++
++  it("does not report a missing value as +0%", () => {
++    expect(
++      formatPercentageDelta({ value: null, baseValue: 0.5, formatPercent })
++    ).toEqual("--");
++    expect(
++      formatPercentageDelta({ value: 0.5, baseValue: undefined, formatPercent })
++    ).toEqual("--");
++  });
++});
+diff --git a/js/app/src/pages/experiment/utils.ts b/js/app/src/pages/experiment/utils.ts
+index 75e1dac..1e2632f 100644
+--- a/js/app/src/pages/experiment/utils.ts
++++ b/js/app/src/pages/experiment/utils.ts
+@@ -17,3 +17,31 @@ export function calculateAnnotationScorePercentile(
+   const range = correctedMax - correctedMin || 1;
+   return ((value - correctedMin) / range) * 100;
+ }
++
++/**
++ * Formats the relative change of a compare experiment's value against the base
++ * experiment's value, e.g. "+12.50%" or "-3.00%".
++ *
++ * Returns "--" when the change is undefined: either value is missing, or the
++ * base value is 0 and the compare value is not (no percentage of 0 exists).
++ * Showing "+0%" in those cases would read as "no change".
++ */
++export function formatPercentageDelta({
++  value,
++  baseValue,
++  formatPercent,
++}: {
++  value: number | null | undefined;
++  baseValue: number | null | undefined;
++  formatPercent: (value: number) => string;
++}): string {
++  if (typeof value !== "number" || typeof baseValue !== "number") {
++    return "--";
++  }
++  const delta = value - baseValue;
++  if (baseValue === 0) {
++    return delta === 0 ? `+${formatPercent(0)}` : "--";
++  }
++  const sign = delta >= 0 ? "+" : "-";
++  return `${sign}${formatPercent(Math.abs(delta / baseValue) * 100)}`;
++}

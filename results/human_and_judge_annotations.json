@@ -1,0 +1,79 @@
+{
+ "stored_annotations": [
+  {
+   "span": "c49ca788845248d2",
+   "kind": "HUMAN",
+   "identifier": "",
+   "label": "bad",
+   "score": 0.0
+  },
+  {
+   "span": "d165b3ea8fc94388",
+   "kind": "HUMAN",
+   "identifier": "",
+   "label": "bad",
+   "score": 0.0
+  },
+  {
+   "span": "b617f044e1a54698",
+   "kind": "HUMAN",
+   "identifier": "",
+   "label": "bad",
+   "score": 0.0
+  },
+  {
+   "span": "b617f044e1a54698",
+   "kind": "LLM",
+   "identifier": "judge-v1",
+   "label": "good",
+   "score": 1.0
+  },
+  {
+   "span": "c0c2a12dbaf24b56",
+   "kind": "HUMAN",
+   "identifier": "",
+   "label": "bad",
+   "score": 0.0
+  },
+  {
+   "span": "c0c2a12dbaf24b56",
+   "kind": "LLM",
+   "identifier": "judge-v1",
+   "label": "good",
+   "score": 1.0
+  }
+ ],
+ "spans_1_2_judge_annotation_kept": 0,
+ "project_summary_for_quality": {
+  "node": {
+   "spanAnnotationSummary": {
+    "meanScore": 0.25,
+    "count": 6,
+    "labelFractions": [
+     {
+      "label": "bad",
+      "fraction": 0.75
+     },
+     {
+      "label": "good",
+      "fraction": 0.25
+     }
+    ]
+   }
+  }
+ },
+ "judge_vs_human_pairs": [
+  [
+   [
+    "bad",
+    "good"
+   ]
+  ],
+  [
+   [
+    "bad",
+    "good"
+   ]
+  ]
+ ]
+}

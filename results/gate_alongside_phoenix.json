@@ -1,0 +1,18 @@
+{
+ "pytest_exit": 0,
+ "pytest_summary": "27 passed, 3 xfailed in 0.44s",
+ "evidence_decision": {
+  "verdict": "PASS",
+  "estimate": 0.9,
+  "interval": [
+   0.7347115495257923,
+   0.9788828629702774
+  ],
+  "threshold": 0.6,
+  "examples": 30,
+  "judgments": 30,
+  "missing": 0
+ },
+ "phoenix_runs": 30,
+ "phoenix_runs_recorded_as_failed": 3
+}

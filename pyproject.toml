@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "phoenix-evidence"
+version = "0.1.0"
+description = "Margins of error, judge certificates and decidable gates for Arize Phoenix evaluations."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = []
+
+[project.entry-points.pytest11]
+# Named after the module, so `-p phoenix_evidence.pytest_plugin` does not load it twice.
+"phoenix_evidence.pytest_plugin" = "phoenix_evidence.pytest_plugin"
+
+[project.optional-dependencies]
+phoenix = [
+    "arize-phoenix-client",
+    "arize-phoenix-evals>=3.9.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["phoenix_evidence"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p pytester"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # the formatter owns line length; long f-strings and tables are left whole
+
+[tool.ruff.lint.per-file-ignores]
+"bench/*" = ["E501"]

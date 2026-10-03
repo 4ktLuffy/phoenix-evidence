@@ -1,0 +1,59 @@
+{
+ "dataset_id": "RGF0YXNldDox",
+ "experiment_id": "RXhwZXJpbWVudDox",
+ "url": "http://localhost:6006/datasets/RGF0YXNldDox/compare?experimentId=RXhwZXJpbWVudDox",
+ "stored_metadata": {
+  "phoenix_evidence_certificate": {
+   "verdict": "NOT_ENOUGH_EVIDENCE",
+   "judge": "RefusalEvaluator on codex:gpt-5.6-luna@none",
+   "examples": 40,
+   "kappa": 1.0,
+   "kappa_interval": [
+    0.8197497639308392,
+    1.0
+   ],
+   "calls": 143,
+   "errors": 0,
+   "labels_to_settle": 9,
+   "label_review": [],
+   "checks": {
+    "agreement": {
+     "status": "TRUSTWORTHY",
+     "failures": 0,
+     "trials": 40,
+     "interval": [
+      0.8197497639308392,
+      1.0
+     ]
+    },
+    "consistency": {
+     "status": "TRUSTWORTHY",
+     "failures": 0,
+     "trials": 40,
+     "interval": [
+      0.0,
+      0.0880973028788024
+     ]
+    },
+    "reformat": {
+     "status": "TRUSTWORTHY",
+     "failures": 0,
+     "trials": 40,
+     "interval": [
+      0.0,
+      0.0880973028788024
+     ]
+    },
+    "grader_note": {
+     "status": "NOT_ENOUGH_EVIDENCE",
+     "failures": 2,
+     "trials": 23,
+     "interval": [
+      0.010709966037875773,
+      0.2803793359094111
+     ]
+    }
+   }
+  }
+ }
+}

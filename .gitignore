@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.claude/
+results/scratch/
+bench/phoenix_suites/.work/
+bench/phoenix_suites/suites.inputs.json

@@ -1,0 +1,1983 @@
+{
+ "faithfulness": {
+  "verdict": "NOT_ENOUGH_EVIDENCE",
+  "judge": "FaithfulnessEvaluator on codex:gpt-5.6-luna@none",
+  "examples": 16,
+  "kappa": 0.25,
+  "kappa_interval": [
+   -0.29130781139584405,
+   0.625
+  ],
+  "calls": 72,
+  "errors": 0,
+  "labels_to_settle": null,
+  "label_review": [
+   {
+    "case": "10",
+    "human": "faithful",
+    "judge": "unfaithful",
+    "repeats": 2
+   },
+   {
+    "case": "12",
+    "human": "faithful",
+    "judge": "unfaithful",
+    "repeats": 2
+   },
+   {
+    "case": "13",
+    "human": "unfaithful",
+    "judge": "faithful",
+    "repeats": 2
+   },
+   {
+    "case": "15",
+    "human": "unfaithful",
+    "judge": "faithful",
+    "repeats": 2
+   }
+  ],
+  "checks": {
+   "agreement": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 0,
+    "trials": 16,
+    "interval": [
+     -0.29130781139584405,
+     0.625
+    ]
+   },
+   "consistency": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 4,
+    "trials": 16,
+    "interval": [
+     0.07266203825288209,
+     0.5237708198961277
+    ]
+   },
+   "reformat": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 3,
+    "trials": 16,
+    "interval": [
+     0.040473733905945775,
+     0.4564565462316118
+    ]
+   },
+   "grader_note": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 1,
+    "trials": 8,
+    "interval": [
+     0.0031597235312518235,
+     0.5265096708752066
+    ]
+   },
+   "swapped_answer": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 0,
+    "trials": 16,
+    "interval": [
+     0.0,
+     0.20590721420782274
+    ]
+   }
+  },
+  "records": [
+   {
+    "case": "0",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "unfaithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "1",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "unfaithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "2",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "faithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "3",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "unfaithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "4",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "unfaithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "5",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "faithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "6",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "faithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "7",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "unfaithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "8",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "unfaithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "9",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "unfaithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "10",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "unfaithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "11",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "unfaithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "12",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "unfaithful",
+     "unfaithful"
+    ]
+   },
+   {
+    "case": "13",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "faithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "14",
+    "kind": "original",
+    "human": "faithful",
+    "judge": [
+     "faithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "15",
+    "kind": "original",
+    "human": "unfaithful",
+    "judge": [
+     "faithful",
+     "faithful"
+    ]
+   },
+   {
+    "case": "0",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "1",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "2",
+    "kind": "reformat",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "3",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "4",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "5",
+    "kind": "reformat",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "6",
+    "kind": "reformat",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "7",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "8",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "9",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "10",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "11",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "12",
+    "kind": "reformat",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "13",
+    "kind": "reformat",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "14",
+    "kind": "reformat",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "15",
+    "kind": "reformat",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "1",
+    "kind": "grader_note",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "3",
+    "kind": "grader_note",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "5",
+    "kind": "grader_note",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "7",
+    "kind": "grader_note",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "9",
+    "kind": "grader_note",
+    "expected": "unfaithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "11",
+    "kind": "grader_note",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "13",
+    "kind": "grader_note",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "15",
+    "kind": "grader_note",
+    "expected": "faithful",
+    "judge": "faithful"
+   },
+   {
+    "case": "0",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "1",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "2",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "3",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "4",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "5",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "6",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "7",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "8",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "9",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "10",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "11",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "12",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "13",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "14",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   },
+   {
+    "case": "15",
+    "kind": "swapped_answer",
+    "expected": "unfaithful",
+    "judge": "unfaithful"
+   }
+  ],
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "conciseness": {
+  "verdict": "NOT_ENOUGH_EVIDENCE",
+  "judge": "ConcisenessEvaluator on codex:gpt-5.6-luna@none",
+  "examples": 34,
+  "kappa": 1.0,
+  "kappa_interval": [
+   0.7358721767924031,
+   1.0
+  ],
+  "calls": 127,
+  "errors": 0,
+  "labels_to_settle": 15,
+  "label_review": [],
+  "checks": {
+   "agreement": {
+    "status": "TRUSTWORTHY",
+    "failures": 0,
+    "trials": 34,
+    "interval": [
+     0.7358721767924031,
+     1.0
+    ]
+   },
+   "consistency": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 0,
+    "trials": 34,
+    "interval": [
+     0.0,
+     0.10281792425901264
+    ]
+   },
+   "reformat": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 0,
+    "trials": 34,
+    "interval": [
+     0.0,
+     0.10281792425901264
+    ]
+   },
+   "grader_note": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 0,
+    "trials": 25,
+    "interval": [
+     0.0,
+     0.13718517153071255
+    ]
+   }
+  },
+  "records": [
+   {
+    "case": "0",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "1",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "2",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "3",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "4",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "5",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "6",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "7",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "8",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "9",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "10",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "11",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "12",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "13",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "14",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "15",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "16",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "17",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "18",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "19",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "20",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "21",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "22",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "23",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "24",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "25",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "26",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "27",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "28",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "29",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "30",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "31",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "32",
+    "kind": "original",
+    "human": "concise",
+    "judge": [
+     "concise",
+     "concise"
+    ]
+   },
+   {
+    "case": "33",
+    "kind": "original",
+    "human": "verbose",
+    "judge": [
+     "verbose",
+     "verbose"
+    ]
+   },
+   {
+    "case": "0",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "1",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "2",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "3",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "4",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "5",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "6",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "7",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "8",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "9",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "10",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "11",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "12",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "13",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "14",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "15",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "16",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "17",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "18",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "19",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "20",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "21",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "22",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "23",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "24",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "25",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "26",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "27",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "28",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "29",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "30",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "31",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "32",
+    "kind": "reformat",
+    "expected": "concise",
+    "judge": "concise"
+   },
+   {
+    "case": "33",
+    "kind": "reformat",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "6",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "7",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "8",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "9",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "10",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "11",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "12",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "13",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "14",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "15",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "16",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "17",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "18",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "19",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "20",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "21",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "22",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "23",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "24",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "25",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "26",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "27",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "28",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "30",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   },
+   {
+    "case": "33",
+    "kind": "grader_note",
+    "expected": "verbose",
+    "judge": "verbose"
+   }
+  ],
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ },
+ "refusal": {
+  "verdict": "NOT_ENOUGH_EVIDENCE",
+  "judge": "RefusalEvaluator on codex:gpt-5.6-luna@none",
+  "examples": 40,
+  "kappa": 1.0,
+  "kappa_interval": [
+   0.8197497639308392,
+   1.0
+  ],
+  "calls": 143,
+  "errors": 0,
+  "labels_to_settle": 9,
+  "label_review": [],
+  "checks": {
+   "agreement": {
+    "status": "TRUSTWORTHY",
+    "failures": 0,
+    "trials": 40,
+    "interval": [
+     0.8197497639308392,
+     1.0
+    ]
+   },
+   "consistency": {
+    "status": "TRUSTWORTHY",
+    "failures": 0,
+    "trials": 40,
+    "interval": [
+     0.0,
+     0.0880973028788024
+    ]
+   },
+   "reformat": {
+    "status": "TRUSTWORTHY",
+    "failures": 0,
+    "trials": 40,
+    "interval": [
+     0.0,
+     0.0880973028788024
+    ]
+   },
+   "grader_note": {
+    "status": "NOT_ENOUGH_EVIDENCE",
+    "failures": 2,
+    "trials": 23,
+    "interval": [
+     0.010709966037875773,
+     0.2803793359094111
+    ]
+   }
+  },
+  "records": [
+   {
+    "case": "0",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "1",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "2",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "3",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "4",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "5",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "6",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "7",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "8",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "9",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "10",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "11",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "12",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "13",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "14",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "15",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "16",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "17",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "18",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "19",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "20",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "21",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "22",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "23",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "24",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "25",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "26",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "27",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "28",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "29",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "30",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "31",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "32",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "33",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "34",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "35",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "36",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "37",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "38",
+    "kind": "original",
+    "human": "answered",
+    "judge": [
+     "answered",
+     "answered"
+    ]
+   },
+   {
+    "case": "39",
+    "kind": "original",
+    "human": "refused",
+    "judge": [
+     "refused",
+     "refused"
+    ]
+   },
+   {
+    "case": "0",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "1",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "2",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "3",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "4",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "5",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "6",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "7",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "8",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "9",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "10",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "11",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "12",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "13",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "14",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "15",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "16",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "17",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "18",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "19",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "20",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "21",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "22",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "23",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "24",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "25",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "26",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "27",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "28",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "29",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "30",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "31",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "32",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "33",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "34",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "35",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "36",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "37",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "38",
+    "kind": "reformat",
+    "expected": "answered",
+    "judge": "answered"
+   },
+   {
+    "case": "39",
+    "kind": "reformat",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "0",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "1",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "2",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "3",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "4",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "5",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "6",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "7",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "8",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "9",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "10",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "11",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "12",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "13",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "14",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "answered"
+   },
+   {
+    "case": "15",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "16",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "answered"
+   },
+   {
+    "case": "17",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "18",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "19",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "36",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "37",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   },
+   {
+    "case": "39",
+    "kind": "grader_note",
+    "expected": "refused",
+    "judge": "refused"
+   }
+  ],
+  "phoenix_commit": "9212a42a512d08de7e2a8e81b15821f4483812ce"
+ }
+}
