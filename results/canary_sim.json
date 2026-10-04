@@ -1,0 +1,145 @@
+{
+ "design": {
+  "examples_per_day": 50,
+  "days": 90,
+  "allowed": 0.05,
+  "alpha": 0.05,
+  "runs": 2000,
+  "drift_day": 30,
+  "example_flip_rates": "Beta(0.5, 9.5) scaled to mean 0.05"
+ },
+ "rows": [
+  {
+   "shift": 0.0,
+   "prior": "default",
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 0.0155
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 0.235
+   }
+  },
+  {
+   "shift": 0.03,
+   "prior": "default",
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 0.9985,
+    "false_alarm_before_drift": 0.013,
+    "median_days_to_alarm": 24
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.1805,
+    "median_days_to_alarm": 12
+   }
+  },
+  {
+   "shift": 0.05,
+   "prior": "default",
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.01,
+    "median_days_to_alarm": 12.0
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.1575,
+    "median_days_to_alarm": 6
+   }
+  },
+  {
+   "shift": 0.1,
+   "prior": "default",
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.0125,
+    "median_days_to_alarm": 5
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.1675,
+    "median_days_to_alarm": 3
+   }
+  },
+  {
+   "shift": 0.2,
+   "prior": "default",
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.014,
+    "median_days_to_alarm": 2.0
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.189,
+    "median_days_to_alarm": 1.0
+   }
+  },
+  {
+   "shift": 0.0,
+   "prior": "default",
+   "same_rates": true,
+   "canary": {
+    "alarm_by_day_90": 0.017
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 0.2725
+   }
+  },
+  {
+   "shift": 0.0,
+   "prior": [
+    1.0,
+    1.0
+   ],
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 0.0005
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 0.229
+   }
+  },
+  {
+   "shift": 0.03,
+   "prior": [
+    1.0,
+    1.0
+   ],
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 0.9695,
+    "false_alarm_before_drift": 0.0015,
+    "median_days_to_alarm": 31.0
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.179,
+    "median_days_to_alarm": 12.0
+   }
+  },
+  {
+   "shift": 0.05,
+   "prior": [
+    1.0,
+    1.0
+   ],
+   "same_rates": false,
+   "canary": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.003,
+    "median_days_to_alarm": 16.0
+   },
+   "naive_daily_test": {
+    "alarm_by_day_90": 1.0,
+    "false_alarm_before_drift": 0.169,
+    "median_days_to_alarm": 7.0
+   }
+  }
+ ]
+}

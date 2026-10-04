@@ -1,0 +1,110 @@
+{
+ "reference": "codex:gpt-5.6-luna@none, first run",
+ "changed_judge": "codex:gpt-5.6-luna@low",
+ "allowed": 0.05,
+ "alpha": 0.05,
+ "cases": 505,
+ "errors_in_changed_run": 0,
+ "looks": [
+  {
+   "label": "same judge, second run",
+   "checks": 505,
+   "flips": 10,
+   "total_checks": 505,
+   "total_flips": 10,
+   "evidence": 0.056882719583702425,
+   "drifted": false
+  },
+  {
+   "label": "effort low, part 1",
+   "checks": 169,
+   "flips": 5,
+   "total_checks": 674,
+   "total_flips": 15,
+   "evidence": 0.046847289845350186,
+   "drifted": false
+  },
+  {
+   "label": "effort low, part 2",
+   "checks": 168,
+   "flips": 2,
+   "total_checks": 842,
+   "total_flips": 17,
+   "evidence": 0.035704343022719465,
+   "drifted": false
+  },
+  {
+   "label": "effort low, part 3",
+   "checks": 168,
+   "flips": 4,
+   "total_checks": 1010,
+   "total_flips": 21,
+   "evidence": 0.030599562858867325,
+   "drifted": false
+  }
+ ],
+ "drifted": false,
+ "summary": "21 flips in 1010 re-scored examples over 4 checks (rate 0.021; allowed 0.050). No drift shown: evidence 0.03, alarm at 20. Keep checking; looking again does not raise the false-alarm rate.",
+ "by_suite": {
+  "toxicity": {
+   "cases": 58,
+   "repeat_flips": 0,
+   "changed_flips": 0
+  },
+  "hallucination": {
+   "cases": 37,
+   "repeat_flips": 0,
+   "changed_flips": 0
+  },
+  "correctness": {
+   "cases": 80,
+   "repeat_flips": 1,
+   "changed_flips": 4
+  },
+  "tool_response_handling": {
+   "cases": 51,
+   "repeat_flips": 2,
+   "changed_flips": 3
+  },
+  "completeness": {
+   "cases": 45,
+   "repeat_flips": 1,
+   "changed_flips": 0
+  },
+  "conciseness": {
+   "cases": 34,
+   "repeat_flips": 0,
+   "changed_flips": 0
+  },
+  "refusal": {
+   "cases": 40,
+   "repeat_flips": 0,
+   "changed_flips": 0
+  },
+  "pii_detection.synthetic": {
+   "cases": 40,
+   "repeat_flips": 0,
+   "changed_flips": 0
+  },
+  "tool_invocation": {
+   "cases": 31,
+   "repeat_flips": 2,
+   "changed_flips": 2
+  },
+  "user_friction": {
+   "cases": 40,
+   "repeat_flips": 0,
+   "changed_flips": 1
+  },
+  "faithfulness": {
+   "cases": 16,
+   "repeat_flips": 4,
+   "changed_flips": 1
+  },
+  "retrieval_relevance": {
+   "cases": 33,
+   "repeat_flips": 0,
+   "changed_flips": 0
+  }
+ }
+}

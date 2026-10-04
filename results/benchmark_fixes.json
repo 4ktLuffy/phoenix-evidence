@@ -1,0 +1,157 @@
+{
+ "model": "codex:gpt-5.6-luna@none",
+ "rows": [
+  {
+   "suite": "faithfulness",
+   "case": 12,
+   "label": "faithful",
+   "before": [
+    "unfaithful",
+    "unfaithful"
+   ],
+   "after": [
+    "faithful",
+    "faithful"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  },
+  {
+   "suite": "faithfulness",
+   "case": 13,
+   "label": "unfaithful",
+   "before": [
+    "faithful",
+    "faithful"
+   ],
+   "after": [
+    "unfaithful",
+    "unfaithful"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_invocation",
+   "case": 16,
+   "label": "correct",
+   "before": [
+    "correct",
+    "correct"
+   ],
+   "after": [
+    "correct",
+    "correct"
+   ],
+   "flagged_before": false,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_invocation",
+   "case": 18,
+   "label": "correct",
+   "before": [
+    "incorrect",
+    "incorrect"
+   ],
+   "after": [
+    "correct",
+    "correct"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_invocation",
+   "case": 21,
+   "label": "correct",
+   "before": [
+    "incorrect",
+    "incorrect"
+   ],
+   "after": [
+    "correct",
+    "correct"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_invocation",
+   "case": 23,
+   "label": "correct",
+   "before": [
+    "incorrect",
+    "incorrect"
+   ],
+   "after": [
+    "correct",
+    "correct"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_invocation",
+   "case": 24,
+   "label": "correct",
+   "before": [
+    "correct",
+    "incorrect"
+   ],
+   "after": [
+    "correct",
+    "correct"
+   ],
+   "flagged_before": false,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_invocation",
+   "case": 28,
+   "label": "correct",
+   "before": [
+    "incorrect",
+    "incorrect"
+   ],
+   "after": [
+    "correct",
+    "correct"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_invocation",
+   "case": 30,
+   "label": "correct",
+   "before": [
+    "incorrect",
+    "incorrect"
+   ],
+   "after": [
+    "correct",
+    "correct"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  },
+  {
+   "suite": "tool_response_handling",
+   "case": 31,
+   "label": "incorrect",
+   "before": [
+    "correct",
+    "correct"
+   ],
+   "after": [
+    "incorrect",
+    "incorrect"
+   ],
+   "flagged_before": true,
+   "flagged_after": false
+  }
+ ],
+ "flagged_before": 8,
+ "flagged_after": 0
+}

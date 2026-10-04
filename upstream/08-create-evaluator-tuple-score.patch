@@ -1,0 +1,59 @@
+diff --git a/packages/phoenix-evals/src/phoenix/evals/evaluators.py b/packages/phoenix-evals/src/phoenix/evals/evaluators.py
+index 961b23a..60ba2e6 100644
+--- a/packages/phoenix-evals/src/phoenix/evals/evaluators.py
++++ b/packages/phoenix-evals/src/phoenix/evals/evaluators.py
+@@ -976,11 +976,18 @@ def create_evaluator(
+         # Handle tuples by processing each element
+         if isinstance(result, tuple):
+             tuple_score_data: Dict[str, Any] = {}
++            has_number = False
+             for item in result:
+-                if isinstance(item, (int, float, bool)):
+-                    tuple_score_data["score"] = float(item) if isinstance(item, bool) else item
+-                    if "label" not in tuple_score_data and isinstance(item, bool):
+-                        tuple_score_data["label"] = str(item)  # may get overwritten
++                if isinstance(item, bool):
++                    # A bool is a pass/fail label; it is the score only when no number is given,
++                    # whichever order the elements come in. The first bool decides both.
++                    if "label" not in tuple_score_data:
++                        if not has_number:
++                            tuple_score_data["score"] = float(item)
++                        tuple_score_data["label"] = str(item)  # may get overwritten by a string
++                elif isinstance(item, (int, float)):
++                    tuple_score_data["score"] = item
++                    has_number = True
+                 elif isinstance(item, str):
+                     if item.count(" ") <= LABEL_WORD_COUNT_THRESHOLD - 1:
+                         tuple_score_data["label"] = item
+diff --git a/packages/phoenix-evals/tests/phoenix/evals/test_evaluators.py b/packages/phoenix-evals/tests/phoenix/evals/test_evaluators.py
+index 017e4d2..6fb9488 100644
+--- a/packages/phoenix-evals/tests/phoenix/evals/test_evaluators.py
++++ b/packages/phoenix-evals/tests/phoenix/evals/test_evaluators.py
+@@ -727,6 +727,27 @@ class TestCreateEvaluatorDecorator:
+         assert score.label == "very good"
+         assert score.explanation == "This is a comprehensive evaluation"
+ 
++    @pytest.mark.parametrize(
++        "result, expected_score, expected_label",
++        [
++            ((0.8, True), 0.8, "True"),
++            ((True, 0.8), 0.8, "True"),
++            ((True, False), 1.0, "True"),
++        ],
++    )
++    def test_create_evaluator_tuple_number_is_the_score_in_any_order(
++        self, result: tuple, expected_score: float, expected_label: str
++    ) -> None:
++        """A bool in a tuple is a label; the number is the score, whichever comes first."""
++
++        @create_evaluator(name="ordered_tuple_evaluator", kind="code")
++        def test_func(input_text: str) -> tuple:
++            return result
++
++        score = test_func.evaluate({"input_text": "test"})[0]
++        assert score.score == expected_score
++        assert score.label == expected_label
++
+     def test_create_evaluator_with_mixed_tuple_return(self):
+         """Test create_evaluator with mixed tuple including nested dict."""
+ 

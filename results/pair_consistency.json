@@ -1,0 +1,24 @@
+{
+ "completeness": {
+  "pairs": 4,
+  "pair_judgments": 8,
+  "case_accuracy": 1.0,
+  "pair_accuracy": 1.0,
+  "same_label_on_both": 0.0
+ },
+ "faithfulness": {
+  "pairs": 8,
+  "pair_judgments": 16,
+  "case_accuracy": 0.625,
+  "pair_accuracy": 0.4375,
+  "same_label_on_both": 0.375
+ },
+ "faithfulness_with_upstream_05": {
+  "pairs": 8,
+  "pair_judgments": 16,
+  "case_accuracy": 0.75,
+  "pair_accuracy": 0.5625,
+  "same_label_on_both": 0.375
+ },
+ "judge": "phoenix-evals evaluators on codex:gpt-5.6-luna@none, two runs per case"
+}

@@ -67,7 +67,7 @@ def load_inputs(suite_file: str) -> list[dict[str, Any]]:
 class CachedJudge:
     """Phoenix evaluator behind a disk cache; repeats of one input are cached by repeat number."""
 
-    def __init__(self, suite: str, evaluator: Any) -> None:
+    def __init__(self, suite: str, evaluator: Any, model: str = f'codex:{MODEL}@{EFFORT}') -> None:
         self.path = OUT / 'judgments' / f'{suite}.jsonl'
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.cache: dict[str, dict[str, Any]] = {}
@@ -76,6 +76,7 @@ class CachedJudge:
                 row = json.loads(line)
                 self.cache[row['key']] = row
         self.evaluator = evaluator
+        self.model = model  # recorded on every new judgment
         self.seen: dict[str, int] = {}
         self.new_calls = 0
 
@@ -94,7 +95,7 @@ class CachedJudge:
         except Exception as e:  # recorded, and counted as a failed call by certify
             label, explanation, error = None, None, repr(e)[:300]
         row = {'key': key, 'label': label, 'explanation': explanation, 'error': error,
-               'model': f'codex:{MODEL}@{EFFORT}', 'seconds': round(time.time() - started, 1)}  # fmt: skip
+               'model': self.model, 'seconds': round(time.time() - started, 1)}  # fmt: skip
         self.cache[key] = row
         self.new_calls += 1
         with self.path.open('a') as f:

@@ -1,0 +1,47 @@
+{
+ "two runs, no reasoning": {
+  "judges": 2,
+  "cases": 505,
+  "error_rates": [
+   0.04950495049504951,
+   0.04554455445544554
+  ],
+  "correlation": 0.7820391182750887,
+  "effective_judges": 1.122309818841623,
+  "single_accuracy": 0.9544554455445544,
+  "majority_accuracy": 0.9425742574257425,
+  "summary": "2 judges on 505 cases: errors correlate at 0.78, so the jury is worth 1.12 independent judges; majority accuracy 0.943 vs 0.954 for the best single judge"
+ },
+ "no reasoning + low reasoning": {
+  "judges": 2,
+  "cases": 505,
+  "error_rates": [
+   0.04950495049504951,
+   0.047524752475247525
+  ],
+  "correlation": 0.7642446120441916,
+  "effective_judges": 1.1336296488289364,
+  "single_accuracy": 0.9524752475247524,
+  "majority_accuracy": 0.9405940594059405,
+  "summary": "2 judges on 505 cases: errors correlate at 0.76, so the jury is worth 1.13 independent judges; majority accuracy 0.941 vs 0.952 for the best single judge"
+ },
+ "all three": {
+  "judges": 3,
+  "cases": 505,
+  "error_rates": [
+   0.04950495049504951,
+   0.04554455445544554,
+   0.047524752475247525
+  ],
+  "correlation": 0.7670039633514723,
+  "effective_judges": 1.1838952705658534,
+  "single_accuracy": 0.9544554455445544,
+  "majority_accuracy": 0.9524752475247524,
+  "summary": "3 judges on 505 cases: errors correlate at 0.77, so the jury is worth 1.18 independent judges; majority accuracy 0.952 vs 0.954 for the best single judge"
+ },
+ "judges": [
+  "codex:gpt-5.6-luna@none run 1",
+  "codex:gpt-5.6-luna@none run 2",
+  "codex:gpt-5.6-luna@low"
+ ]
+}

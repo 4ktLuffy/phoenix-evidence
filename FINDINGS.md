@@ -6,8 +6,6 @@ Phoenix `main` at [`9212a42`](https://github.com/Arize-ai/phoenix/commit/9212a42
 invites a wrong reading), or **intended** (a deliberate choice, noted so nobody mistakes it for
 a bug). Nothing here has been posted to Phoenix.
 
-> Draft. Sections marked *pending* are still running.
-
 ## 1. The experiment compare page reports regressions between identical experiments (bug)
 
 `experimentRunMetricComparisons`, [`src/phoenix/server/api/queries.py:745-801`](https://github.com/Arize-ai/phoenix/blob/9212a42a512d08de7e2a8e81b15821f4483812ce/src/phoenix/server/api/queries.py#L745-L801),
@@ -295,13 +293,30 @@ what humans fail and is unsure on 60% of its mistakes:
 
 | human labels | human labels alone: width | corrected, planned: width | coverage (planned) | uniform labels for the same width |
 |---|---|---|---|---|
-| 80 | 0.196 | 0.150 | 99.5% | 136 |
-| 160 | 0.138 | 0.096 | 95.8% | 327 |
-| 320 | 0.096 | 0.062 | 96.8% | 767 |
+| 80 | 0.196 | 0.142 | 99.0% | 151 |
+| 160 | 0.138 | 0.092 | 95.8% | 357 |
+| 320 | 0.096 | 0.059 | 97.3% | 839 |
 
-The last column extrapolates by the 1/sqrt(n) rule from one generator, so read it as "1.7 to 2.4
-times fewer labels here", not as a general guarantee; at 40 labels the gain is small (49). The
-judge's own rate never covered the truth (0% of trials).
+The last column extrapolates by the 1/sqrt(n) rule from one generator: "1.9 to 2.6 times fewer
+labels here", not a general guarantee. The judge's own rate never covered the truth (0% of trials).
+
+**Where the saving comes from (a correction to an earlier version of this section).** Nearly all
+of it is the correction itself, the judge on every trace; choosing which traces to label adds
+little. Against the same correction with uniformly drawn labels, planning saves 1.2 to 1.3 times
+with the rates assumed above (`bench/planner_sensitivity.py`). Those rates were assumptions; on
+real labels (Codex judging 505 benchmark cases twice, against the suites' labels) the judge changed
+its answer on 24% of its mistakes (6 of 25) and 0.8% of its correct answers (4 of 480), and
+planning then saves 1.1 times. The default planner floor was raised from 0.2 to 1.0 tonight: a
+single repeat's disagreement is a noisy signal, and at 0.2 it could swing a trace's chance six-fold
+and widen the interval (0.66 times the labels' worth of uniform sampling in
+`bench/planner_floor.py`); at 1.0 it did no harm there and did as well on the measured rates.
+
+When the judge gives a probability (a classifier score, or a judge asked for one), passing the
+probability as the judge's value is worth more than any planning: 1.4 times the labels' worth of a
+hard label with uniform sampling when the probability is calibrated or overconfident, 1.1 when
+underconfident; planning by sqrt(p(1-p)) adds up to 1.15 more when the probability is not
+overconfident (`bench/planner_probabilities.py`, coverage 94.2% or above in every cell).
+`plan-labels --judge-probability` does both.
 
 Two versions came before this one, and both failed measurement. The first tuned the judge's weight
 on the same labels and used a small-sample floor: it covered in this simulation, but the second
@@ -380,3 +395,187 @@ configurations on one span, the disagreement list and the agreement statistics p
 label by different rules (one judge configuration is now used throughout, `--judge-identifier`),
 and the "human labels alone" comparison was a plain interval on a planned (unequal-probability)
 sample, which is biased; it is now the same weighted estimator without the judge.
+
+## 14. Resuming an experiment keeps scores computed on the failed output (bug, fixed in `upstream/07`)
+
+When a task fails, `run_experiment` still runs every evaluator on the run, with output `None`
+([`experiments/__init__.py:452-475`](https://github.com/Arize-ai/phoenix/blob/9212a42a512d08de7e2a8e81b15821f4483812ce/packages/phoenix-client/src/phoenix/client/resources/experiments/__init__.py#L452-L475)),
+so an exact-match evaluator stores 0. `resume_experiment` then re-runs the task and the server
+replaces the errored run in place, keeping its id
+([`experiment_runs.py:105-139`](https://github.com/Arize-ai/phoenix/blob/9212a42a512d08de7e2a8e81b15821f4483812ce/src/phoenix/server/api/routers/v1/experiment_runs.py#L105-L139)).
+The old annotation is not removed, so `resume_evaluation` sees the run as evaluated and skips it.
+Reproduced in-process with Phoenix's own test fixtures (`bench/phoenix_repro/test_resume_repro.py`):
+after the resume, the run's output is the correct `"B"` and its score is still `0.0`, permanently,
+and nothing in the UI says so.
+
+The fix, in the server: when the route replaces an errored run, it deletes that run's evaluator
+annotations (CODE and LLM), which no longer describe it; the resume then re-scores the run (`1.0` in
+the same reproduction). Human annotations are kept: a resume never re-creates them, and the third
+review showed the first version of this fix deleting them too. A new server test fails before the
+fix (the stale annotation is there), checks a human annotation survives, and passes on SQLite and
+Postgres. The deletion emits Phoenix's existing `ExperimentRunAnnotationDeleteEvent`. Left open: the
+evaluator trace spans of the deleted annotations stay in the experiment's trace project.
+
+Two smaller client bugs on the same path, fixed in the same patch (sync and async clients):
+
+- the "Only X out of Y expected runs were completed successfully" warning never fires, because the
+  server's run list includes errored runs and the count included them (2 runs, 1 failed: no warning);
+- `resume_evaluation` warns against runs × every evaluator, though only each run's missing
+  evaluations are re-run: one missing evaluation re-run successfully printed "Only 1 out of 2".
+
+New integration tests for both fail on the original code and pass after; Phoenix's client
+integration suite (74 passed) and client unit tests (716 passed) pass, ruff and mypy are clean,
+and pyright reports the same 683 environment errors on the file before and after.
+
+Found and reproduced: `resume_evaluation` never finishes for an evaluator that returns
+several named scores: it asks the server for the dict key, but the scores are stored under each
+result's own name, so every call re-runs the judge on every run (reproduced: 2 of 2 runs re-judged
+on each of two resumes). A correct fix needs the output names before the evaluator runs, which is
+a design choice for the maintainers. And `create_evaluator` kept whichever number came last in a
+returned tuple, a bool counting as a number: `(0.8, True)` scored 1.0, `(True, 0.8)` scored 0.8
+([`evaluators.py:979-983`](https://github.com/Arize-ai/phoenix/blob/9212a42a512d08de7e2a8e81b15821f4483812ce/packages/phoenix-evals/src/phoenix/evals/evaluators.py#L979-L983)).
+Fixed in [`upstream/08`](upstream/08-create-evaluator-tuple-score.patch): the number is the score
+in either order and the bool the label; a new test fails on main for `(0.8, True)` and passes
+after (phoenix-evals' evaluator tests: 141 passed).
+Checked and found fine: `ClassificationEvaluator` matches labels exactly against a schema enum (no
+substring or case problems); incomplete-run pagination; splits in `run_experiment`.
+
+## 15. The benchmark data fixes (`upstream/05`), measured
+
+The label audit (section 12) found labels and inputs that no careful judge can agree with.
+`upstream/05` changes four suite files in `js/benchmarks/evals-benchmarks/src`: the reversed
+faithfulness pair (section 7) is swapped back; the six correct tool-invocation cases that turn
+"tomorrow" or a year-less date into a 2024 date get a "System: Today is ..." line (weekdays
+checked), and case 21's user message now gives the dates its call uses; tool_response_handling 31's
+transformation is now actually wrong, as its tag says; the all-positive PII suite's description says
+a constant judge scores 1.0 on it. Re-judging the 10 changed cases twice each with the suites' own
+evaluators on Codex (`bench/benchmark_fixes.py`, `results/benchmark_fixes.json`): **8 flags before,
+0 after**. All 13 suites still load with the same case counts and gates.
+
+## 16. Phoenix's assistant, on reading evaluation numbers (`upstream/06`)
+
+Phoenix ships agent skills that its assistant follows when helping users validate evaluators and
+read experiments. They read point estimates as verdicts. `upstream/06` keeps their style and adds
+what 25, 50 and 100 labels can show (25/25, 46/50 or 89/100 correct for the lower bound of a
+two-sided 95% exact interval to clear 80%; 21/25 is 64-95%), exact intervals in the
+quick-validation code, a refusal in the TPR/TNR correction when the judge is at or below chance,
+plus clipping and a bootstrap range, errored runs and unknown labels counted against the judge in
+the TypeScript confusion matrix (they were dropped), and, for the assistant's experiment skill, a
+noise check before declaring a win (5 of 5 the same way, in either direction, happens by chance 1
+time in 16) with failed runs counted as failures.
+
+## 17. Has the judge drifted? A check that can run every day (`canary`)
+
+A frozen set keeps the judge's labels from when it was trusted; each check re-scores it and counts
+flips. Some flips are noise, so drift means a flip rate above an allowed rate. Testing that every
+day with an ordinary test raises false alarms: simulated over 90 daily looks (50 examples a day,
+examples with different flip rates averaging exactly the allowed 5%), a daily one-sided binomial
+test on all flips so far alarmed in **23.5%** of runs with no drift. `canary` uses a mixture
+likelihood ratio (Beta prior truncated above the allowed rate), a supermartingale under every flip
+rate at or below the allowed one, so the chance it ever alarms without drift is at most alpha
+however often it is checked: **1.6%** in the same simulation (1.7% with equal flip rates;
+`bench/canary_sim.py`). After a real drift of +3, +5, +10 or +20 points it alarmed in a median of
+24, 12, 5 and 2 days (2,000 runs each; see `results/canary_sim.json` for every row). The
+one-step property is checked exactly in `tests/test_canary.py` for every state up to 120 checks.
+
+On real labels (`bench/canary_real.py`, `results/canary_real.json`): 505 benchmark cases, frozen
+labels from Codex with no reasoning; a second run of the same judge flipped 10 (2.0%); switching
+the judge to low reasoning (505 new calls) flipped 11 (2.2%) over three checks. With 5% allowed,
+fixed before the run, no drift was declared: this configuration change did not move the judge
+beyond its own noise. Detection is also shown in simulation.
+
+A real judge change, as a positive control (`bench/canary_model_switch.py`,
+`results/canary_model_switch.json`): on 168 cases of three suites, Codex's labels frozen, then the
+judge swapped for Claude Haiku 4.5 on the exact prompts Phoenix's evaluators send (run as Claude
+Code subagents, since the CLI login had expired; recorded as such), twice. A second Codex run flipped
+3 (1.8%); Haiku flipped 22 on its first pass (13%) and 10 on its second (6%), and disagreed with
+itself on 10.7%. At the pre-set 5% allowed rate, 336 Haiku re-scores were **not** enough to declare
+drift (evidence 2.3 of 20): over both passes Haiku differs from Codex on 9.5%, close enough to the
+allowed rate that it needs more checks. Post hoc, for guidance only: with 3% or 4% allowed (still
+above Codex's own 1.8-2.0% repeat noise) it would have alarmed during the first Haiku pass, at 2%
+after 112 Haiku re-scores. The lesson for setting it: allow a little above the trusted judge's
+measured repeat rate, not a round number.
+
+The guarantee needs fresh judge calls each check (a response cache makes today's flips copies of yesterday's), and each
+check must re-score the whole frozen set: the command compares labels (scores when there are none),
+counts an example a check skipped or errored on as a flip, and refuses a check experiment given
+twice. All three rules came from the third review, which made a hand-picked 5-example check, a
+replayed check, and a label change with an unchanged score each fool the first version.
+
+## 18. The dataset doctor, and minimal pairs scored as pairs (`doctor`)
+
+`doctor` reads a Phoenix dataset (and its splits) and reports exact and near copies (word 3-gram
+Jaccard), copies with different labels, copies across splits (leakage), examples in several splits,
+missing labels, and the class-balance and constant-judge checks of `audit`. Live against Phoenix
+with real splits (`bench/doctor_live.py`), it found the planted copy, its conflicting label and the
+train/test leak.
+
+On Phoenix's 13 suites (`results/dataset_doctor.json`): no copies inflate any suite. It flagged 12
+near-identical pairs with opposite labels in completeness and faithfulness; read by hand, all 12 are
+deliberate minimal pairs with correct labels (`results/dataset_doctor_review.md`). That suggested a
+stricter score: a judge gets a pair only when it gets both members right. Faithfulness, with the
+section 7 fix: **75% case accuracy, which clears the suite's 70% bar, but 56% of pairs right, and
+the same label on both members of a pair in 37.5% of pair judgments**: the judge often cannot tell
+the faithful answer from its unfaithful twin (`bench/pair_consistency.py`). Completeness: 100%.
+
+## 19. What certainty costs, and what a jury of judges is worth
+
+`price` gives the cheapest way to an interval of a given width: human labels alone (exact
+interval), or the judge on every trace plus fewer labels (the same variance `corrected-rate`
+reports; the planned count gives the promised width within 5% in simulation). With the 5%
+disagreement measured on Codex, 10,000 traces and +/-0.05: 402 labels alone, or 107 with the judge;
+at 0.002 per judge call the judge pays for itself above 0.068 per human label
+(`bench/price_of_certainty.py`; costs are inputs).
+
+`jury` measures how correlated judges' mistakes are and what a majority vote is worth. On the 505
+cases, two runs and a low-reasoning run of the same model make the same mistakes (error
+correlation 0.77): three of them are worth **1.18 independent judges**, and their majority (95.2%)
+does not beat the best single run (95.4%) (`bench/effective_judges.py`). Running a judge three
+times and voting buys almost nothing here. Two different models decorrelate far more: Codex and Haiku err on different
+cases (error correlation 0.16 on 168 cases), worth 1.73 independent judges
+(`results/canary_model_switch.json`). That is not higher accuracy by itself: with two judges a
+"majority" is undecided whenever they disagree (0.851 against Codex's 0.940 alone), so the gain is
+for a third, independent vote or for sending the disagreements to a person.
+
+## 20. In CI: a GitHub Action
+
+`action.yml` runs `compare` on a pull request against a baseline experiment, writes the table to
+the job summary (experiment names, not only ids), sets a `report` output, and optionally fails on a
+regression (`examples/workflows/phoenix-evidence.yml`). Simulated locally against a live Phoenix
+with GitHub's environment files: exit 1 on the fragile-vs-baseline regression, summary written.
+
+## 21. Stop an experiment as soon as it is decided (`compare --sequential`)
+
+`compare` tests once, on every example. Re-running an ordinary test after every batch and stopping
+at the first "significant" result is a common habit, and in simulation it declared a winner where
+there was none in **28.7%** of runs (`bench/sequential_sim.py`: 20% of examples where the versions
+differ, checked every 10 examples, up to 2,000). `compare --sequential` uses only the examples where
+the versions disagree, treats each as a fair coin under no difference, and accumulates a mixture
+likelihood ratio (a martingale, checked exactly in `tests/test_sequential.py`). The evidence
+depends only on how many disagreements went each way, so each run of the command is one look at a
+growing sample, decided on the current evidence (never by replaying examples in an order that was
+not the real one), and it can be rerun while both experiments are still running. A metric only one
+experiment scored is reported, not tested, and still counts in the Bonferroni split. In
+simulation: **2.9%** false decisions over the same looks, and wrong-direction decisions under a
+real difference at most 0.07%.
+
+What it buys is not fewer examples than a well-planned fixed test: the median examples to a
+correct decision, over the runs that decided (830, 240 and 110 for candidate-better rates of 60%,
+70% and 80% among disagreements; at 60%, 16% of runs had not decided by 2,000), are close to the
+fixed size with 80% power at each true effect (1,020, 260 and 100; computed with the disagreement
+count fixed at its mean, which flatters the fixed test slightly). It is that the
+true effect need not be known in advance: a fixed size planned for a small effect spends 1,020
+examples where, if the effect is large, the sequential test stops near 110. The price is a little
+power at a fixed size: on the demo (10 crashes, no wins) the one-shot test shows the regression
+(p = 0.002) and the sequential one is just short (evidence 39.4 of 40 with two metrics), live
+against Phoenix as in the tests. A second independent review (Claude Sonnet, low effort,
+`results/review/sonnet_review_4.md`) found the first version of the command dropped metrics only
+one side scored and decided by replaying examples in id order; both are fixed with tests.
+
+## Corrections made tonight
+
+- Section 11's saving is mostly the correction, not the planning (see there); the planner floor
+  default changed from 0.2 to 1.0 and the table was re-run.
+- Our own instrument recorded every cached judgment as "no reasoning", including the 40
+  end-to-end judgments made with low reasoning (section 13); the cache now records the model string
+  it was given, and those 40 rows are relabelled.

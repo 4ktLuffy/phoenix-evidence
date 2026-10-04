@@ -1,0 +1,163 @@
+diff --git a/.agents/skills/phoenix-evals/references/validation-evaluators-python.md b/.agents/skills/phoenix-evals/references/validation-evaluators-python.md
+index 3c17b0b..ee6f366 100644
+--- a/.agents/skills/phoenix-evals/references/validation-evaluators-python.md
++++ b/.agents/skills/phoenix-evals/references/validation-evaluators-python.md
+@@ -20,8 +20,29 @@ print(f"TPR: {tpr:.2f}, TNR: {tnr:.2f}")
+ 
+ ```python
+ def correct_estimate(observed, tpr, tnr):
+-    """Adjust observed pass rate using known TPR/TNR."""
+-    return (observed - (1 - tnr)) / (tpr - (1 - tnr))
++    """Adjust observed pass rate using TPR/TNR measured on a labeled set."""
++    youden = tpr + tnr - 1
++    if youden <= 0:
++        raise ValueError("judge is no better than chance: TPR + TNR must exceed 1")
++    return min(1.0, max(0.0, (observed - (1 - tnr)) / youden))
++```
++
++TPR and TNR come from a small labeled set, so the corrected rate is uncertain too. Bootstrap
++the labeled set to get a range:
++
++```python
++import numpy as np
++
++rng = np.random.default_rng(0)
++estimates = []
++for _ in range(2000):
++    idx = rng.integers(0, len(human_labels), len(human_labels))
++    h, p = human_labels[idx], evaluator_predictions[idx]
++    tpr_b = ((p == 1) & (h == 1)).sum() / max((h == 1).sum(), 1)
++    tnr_b = ((p == 0) & (h == 0)).sum() / max((h == 0).sum(), 1)
++    if tpr_b + tnr_b > 1:
++        estimates.append(correct_estimate(observed, tpr_b, tnr_b))
++low, high = np.percentile(estimates, [2.5, 97.5])
+ ```
+ 
+ ## Find Misclassified
+@@ -38,6 +59,7 @@ false_negatives = dataset[fn_mask]
+ 
+ ## Red Flags
+ 
+-- TPR or TNR < 70%
++- TPR or TNR < 70%, or its interval's lower bound below your target
+ - Large gap between TPR and TNR
+-- Kappa < 0.6
++- Kappa < 0.6 (on fewer than ~100 labels, bootstrap kappa too: its range is wide)
++- Evaluator errors left out of the confusion matrix: count each as a disagreement
+diff --git a/.agents/skills/phoenix-evals/references/validation-evaluators-typescript.md b/.agents/skills/phoenix-evals/references/validation-evaluators-typescript.md
+index fd67f9f..46f530d 100644
+--- a/.agents/skills/phoenix-evals/references/validation-evaluators-typescript.md
++++ b/.agents/skills/phoenix-evals/references/validation-evaluators-typescript.md
+@@ -71,15 +71,20 @@ const predicted = new Map((experiment.evaluationRuns ?? [])
+   .filter((e) => e.name === "exact-match")
+   .map((e) => [e.experimentRunId, e.result?.label ?? null]));
+ 
++// A run that errored or returned an unknown label is a judge failure: count it against the
++// judge (a miss on its class), never drop it, or a judge that fails on hard cases looks better.
+ let tp = 0, fp = 0, tn = 0, fn = 0;
+ for (const run of runs) {
+-  if (run.error) continue;
+-  const p = predicted.get(run.id), a = groundTruth.get(run.datasetExampleId);
+-  if (!p || !a) continue;
+-  if (a === POSITIVE_LABEL && p === POSITIVE_LABEL) tp++;
+-  else if (a === NEGATIVE_LABEL && p === POSITIVE_LABEL) fp++;
+-  else if (a === NEGATIVE_LABEL && p === NEGATIVE_LABEL) tn++;
+-  else if (a === POSITIVE_LABEL && p === NEGATIVE_LABEL) fn++;
++  const a = groundTruth.get(run.datasetExampleId);
++  if (!a) continue;
++  const p = run.error ? null : predicted.get(run.id) ?? null;
++  if (a === POSITIVE_LABEL) {
++    if (p === POSITIVE_LABEL) tp++;
++    else fn++;
++  } else if (a === NEGATIVE_LABEL) {
++    if (p === NEGATIVE_LABEL) tn++;
++    else fp++;
++  }
+ }
+ const total = tp + fp + tn + fn;
+ const tpr = tp + fn > 0 ? (tp / (tp + fn)) * 100 : 0;
+@@ -95,7 +100,7 @@ console.log(`TPR: ${tpr.toFixed(1)}%  TNR: ${tnr.toFixed(1)}%  Accuracy: ${((tp
+ | TNR (specificity) | >80% | Flags good outputs (false positives) |
+ | Accuracy | >80% | General weakness |
+ 
+-**Golden dataset rules:** ~50/50 balance · include edge cases · human-labeled only · never mutate (append new versions) · 20–50 examples is enough.
++**Golden dataset rules:** ~50/50 balance · include edge cases · human-labeled only · never mutate (append new versions) · 50+ examples per class. On 25 positives a TPR of 84% (21/25) is anywhere from 64% to 95%; to show TPR > 80% you need 46 of 50, or 89 of 100. Read TPR/TNR on their exact (Clopper-Pearson) intervals, not the point value.
+ 
+ **Re-validate when:** prompt template changes · judge model changes · criteria updated · production FP/FN spike.
+ 
+diff --git a/.agents/skills/phoenix-evals/references/validation.md b/.agents/skills/phoenix-evals/references/validation.md
+index b1776c6..35c00f4 100644
+--- a/.agents/skills/phoenix-evals/references/validation.md
++++ b/.agents/skills/phoenix-evals/references/validation.md
+@@ -6,10 +6,22 @@ Validate LLM judges against human labels before deploying. Target >80% agreement
+ 
+ | Requirement | Target |
+ | ----------- | ------ |
+-| Test set size | 100+ examples |
++| Test set size | 100+ examples (50+ per class at the very least) |
+ | Balance | ~50/50 pass/fail |
+-| Accuracy | >80% |
+-| TPR/TNR | Both >70% |
++| Accuracy | >80%, on the interval's lower bound |
++| TPR/TNR | Both >70%, on the interval's lower bound |
++
++A rate measured on a few dozen labels is a range, not a number. Read every target on the
++lower end of its two-sided 95% (exact) interval:
++
++| Labels in the class | Correct needed to show TPR > 80% | 21 of 25 correct means |
++| ------------------- | -------------------------------- | ---------------------- |
++| 25 | 25 | 64% to 95% |
++| 50 | 46 | |
++| 100 | 89 | |
++
++A judge that is truly 90% accurate needs about 120 labels per class to clear 80% on the
++interval 85% of the time (110 gives about 80%); a 95% judge, about 50.
+ 
+ ## Metrics
+ 
+@@ -33,6 +45,11 @@ cm = confusion_matrix(human_labels, evaluator_predictions)
+ tn, fp, fn, tp = cm.ravel()
+ tpr = tp / (tp + fn)
+ tnr = tn / (tn + fp)
++
++# Read each on its exact 95% interval
++from statsmodels.stats.proportion import proportion_confint
++tpr_low, tpr_high = proportion_confint(tp, tp + fn, method="beta")
++tnr_low, tnr_high = proportion_confint(tn, tn + fp, method="beta")
+ ```
+ 
+ ## Golden Dataset Structure
+@@ -65,6 +82,8 @@ golden_v1.append(new_example)
+ - All pass or all fail → too lenient/strict
+ - Random results → criteria unclear
+ - TPR/TNR < 70% → needs improvement
++- Interval lower bound below target → not proven yet: label more, don't ship on the point value
++- Evaluator errors or unparseable labels → count them as disagreements, never drop them
+ 
+ ## Re-Validate When
+ 
+diff --git a/src/phoenix/server/agents/prompts/skills/experiments/SKILL.md b/src/phoenix/server/agents/prompts/skills/experiments/SKILL.md
+index 5bbcde2..b627a59 100644
+--- a/src/phoenix/server/agents/prompts/skills/experiments/SKILL.md
++++ b/src/phoenix/server/agents/prompts/skills/experiments/SKILL.md
+@@ -60,7 +60,13 @@ is drivable end-to-end, pausing only when one of those two conditions is genuine
+    different success criteria per split; never average a guarded holdout back into the headline
+    number. Use repetitions greater than one when you need a consistency read, not a point estimate.
+ 8. Report what the comparison showed: a verdict on the hypothesis, a summary across quality, latency,
+-   and cost, and the evaluator explanations cited as evidence for the verdict.
++   and cost, and the evaluator explanations cited as evidence for the verdict. Before calling a
++   difference a win, check it against noise: count the examples that got better and worse. When
++   only a handful changed (say 5 better, 0 worse), even a clean sweep is not yet evidence
++   (5 of 5 the same way, in either direction, happens by chance 1 time in 16); say "not shown
++   yet" and how many more examples would settle it, instead of declaring a winner. Count failed
++   runs as failures in both experiments, never as missing, or a candidate that fails on hard
++   examples looks better.
+ 9. Continue hypothesis → run → compare → report until the evidence meets the stated goal, then save
+    the prompt version the evidence supports or the accepted tradeoff selects.
+ 
+@@ -89,3 +95,5 @@ them — left intact; a write that omits them erases the scaffold the next sessi
+ - Don't average a guarded holdout split back into the headline number.
+ - Don't re-run a comparison a previous session already settled; read the scaffolding first.
+ - Don't read quality in isolation — a higher score that doubled latency or cost is not a win.
++- Don't call a difference a win when only a few examples changed; small datasets cannot show small
++  gains.

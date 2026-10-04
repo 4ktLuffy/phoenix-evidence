@@ -1,0 +1,26 @@
+# Run your experiment on the PR's code, then ask whether it is really better than the baseline.
+# Requires a reachable Phoenix (PHOENIX_BASE_URL, and PHOENIX_API_KEY if auth is on).
+name: eval-evidence
+on: pull_request
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    env:
+      PHOENIX_BASE_URL: ${{ secrets.PHOENIX_BASE_URL }}
+      PHOENIX_API_KEY: ${{ secrets.PHOENIX_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run the candidate experiment
+        id: run
+        # Your own script: runs the experiment on this branch and prints its id, e.g. with
+        # phoenix.client.Client().experiments.run_experiment(...)["experiment_id"].
+        run: echo "candidate=$(python evals/run_experiment.py)" >> "$GITHUB_OUTPUT"
+      - uses: 4ktLuffy/phoenix-evidence@main
+        with:
+          base: ${{ vars.BASELINE_EXPERIMENT_ID }}
+          candidate: ${{ steps.run.outputs.candidate }}
+          fail-on-regression: 'true'

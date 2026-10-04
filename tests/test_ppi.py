@@ -30,7 +30,8 @@ def test_plan_spends_the_budget_and_never_excludes_a_trace():
     chosen, pi = plan_labels(uncertainty, 100)
     assert sum(pi) == pytest.approx(100)
     assert all(0 < p <= 1 for p in pi)
-    assert pi[-1] > pi[0] * 3  # unsure traces are much more likely to be labelled
+    assert pi[-1] == pytest.approx(pi[0] * 2)  # unsure traces twice as likely at the default floor
+    assert plan_labels(uncertainty, 100, floor=0.2)[1][-1] == pytest.approx(0.2 * 6 / (0.2 * 900 + 1.2 * 100) * 100)
 
 
 def test_plan_caps_probabilities_at_one():

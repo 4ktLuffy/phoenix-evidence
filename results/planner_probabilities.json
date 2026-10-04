@@ -1,0 +1,582 @@
+{
+ "traces": 2000,
+ "reps": 1000,
+ "rows": [
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "uniform / hard label",
+   "coverage": 0.972,
+   "width": 0.2622,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "uniform / probability",
+   "coverage": 0.979,
+   "width": 0.2269,
+   "labels_saved_vs_uniform_hard": 1.34
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.977,
+   "width": 0.2642,
+   "labels_saved_vs_uniform_hard": 0.99
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.981,
+   "width": 0.2305,
+   "labels_saved_vs_uniform_hard": 1.29
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.978,
+   "width": 0.2472,
+   "labels_saved_vs_uniform_hard": 1.13
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "p(1-p) / probability",
+   "coverage": 0.983,
+   "width": 0.2175,
+   "labels_saved_vs_uniform_hard": 1.45
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.985,
+   "width": 0.2497,
+   "labels_saved_vs_uniform_hard": 1.1
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 50,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.985,
+   "width": 0.2183,
+   "labels_saved_vs_uniform_hard": 1.44
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "uniform / hard label",
+   "coverage": 0.962,
+   "width": 0.1729,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "uniform / probability",
+   "coverage": 0.968,
+   "width": 0.1469,
+   "labels_saved_vs_uniform_hard": 1.39
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.968,
+   "width": 0.1732,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.967,
+   "width": 0.149,
+   "labels_saved_vs_uniform_hard": 1.35
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.966,
+   "width": 0.161,
+   "labels_saved_vs_uniform_hard": 1.15
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "p(1-p) / probability",
+   "coverage": 0.967,
+   "width": 0.1392,
+   "labels_saved_vs_uniform_hard": 1.54
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.965,
+   "width": 0.1635,
+   "labels_saved_vs_uniform_hard": 1.12
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 100,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.975,
+   "width": 0.1403,
+   "labels_saved_vs_uniform_hard": 1.52
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "uniform / hard label",
+   "coverage": 0.959,
+   "width": 0.1153,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "uniform / probability",
+   "coverage": 0.957,
+   "width": 0.097,
+   "labels_saved_vs_uniform_hard": 1.41
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.958,
+   "width": 0.1163,
+   "labels_saved_vs_uniform_hard": 0.98
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.959,
+   "width": 0.0983,
+   "labels_saved_vs_uniform_hard": 1.38
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.967,
+   "width": 0.107,
+   "labels_saved_vs_uniform_hard": 1.16
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "p(1-p) / probability",
+   "coverage": 0.971,
+   "width": 0.0913,
+   "labels_saved_vs_uniform_hard": 1.59
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.964,
+   "width": 0.1085,
+   "labels_saved_vs_uniform_hard": 1.13
+  },
+  {
+   "calibration": "calibrated",
+   "budget": 200,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.964,
+   "width": 0.0922,
+   "labels_saved_vs_uniform_hard": 1.57
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "uniform / hard label",
+   "coverage": 0.995,
+   "width": 0.196,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "uniform / probability",
+   "coverage": 0.99,
+   "width": 0.1901,
+   "labels_saved_vs_uniform_hard": 1.06
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.997,
+   "width": 0.1961,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.997,
+   "width": 0.1907,
+   "labels_saved_vs_uniform_hard": 1.06
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.992,
+   "width": 0.1828,
+   "labels_saved_vs_uniform_hard": 1.15
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "p(1-p) / probability",
+   "coverage": 0.992,
+   "width": 0.1786,
+   "labels_saved_vs_uniform_hard": 1.2
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.996,
+   "width": 0.1871,
+   "labels_saved_vs_uniform_hard": 1.1
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 50,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.988,
+   "width": 0.1811,
+   "labels_saved_vs_uniform_hard": 1.17
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "uniform / hard label",
+   "coverage": 0.981,
+   "width": 0.1227,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "uniform / probability",
+   "coverage": 0.984,
+   "width": 0.118,
+   "labels_saved_vs_uniform_hard": 1.08
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.987,
+   "width": 0.1225,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.98,
+   "width": 0.1183,
+   "labels_saved_vs_uniform_hard": 1.08
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.978,
+   "width": 0.1123,
+   "labels_saved_vs_uniform_hard": 1.19
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "p(1-p) / probability",
+   "coverage": 0.981,
+   "width": 0.1092,
+   "labels_saved_vs_uniform_hard": 1.26
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.99,
+   "width": 0.1148,
+   "labels_saved_vs_uniform_hard": 1.14
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 100,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.985,
+   "width": 0.111,
+   "labels_saved_vs_uniform_hard": 1.22
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "uniform / hard label",
+   "coverage": 0.972,
+   "width": 0.0809,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "uniform / probability",
+   "coverage": 0.958,
+   "width": 0.0769,
+   "labels_saved_vs_uniform_hard": 1.11
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.962,
+   "width": 0.08,
+   "labels_saved_vs_uniform_hard": 1.02
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.963,
+   "width": 0.0764,
+   "labels_saved_vs_uniform_hard": 1.12
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.965,
+   "width": 0.0718,
+   "labels_saved_vs_uniform_hard": 1.27
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "p(1-p) / probability",
+   "coverage": 0.974,
+   "width": 0.0694,
+   "labels_saved_vs_uniform_hard": 1.36
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.968,
+   "width": 0.0743,
+   "labels_saved_vs_uniform_hard": 1.19
+  },
+  {
+   "calibration": "underconfident",
+   "budget": 200,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.963,
+   "width": 0.0711,
+   "labels_saved_vs_uniform_hard": 1.29
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "uniform / hard label",
+   "coverage": 0.97,
+   "width": 0.3292,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "uniform / probability",
+   "coverage": 0.972,
+   "width": 0.2828,
+   "labels_saved_vs_uniform_hard": 1.36
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.967,
+   "width": 0.3401,
+   "labels_saved_vs_uniform_hard": 0.94
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.972,
+   "width": 0.2945,
+   "labels_saved_vs_uniform_hard": 1.25
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.963,
+   "width": 0.3251,
+   "labels_saved_vs_uniform_hard": 1.03
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "p(1-p) / probability",
+   "coverage": 0.97,
+   "width": 0.2847,
+   "labels_saved_vs_uniform_hard": 1.34
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.976,
+   "width": 0.3247,
+   "labels_saved_vs_uniform_hard": 1.03
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 50,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.98,
+   "width": 0.2823,
+   "labels_saved_vs_uniform_hard": 1.36
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "uniform / hard label",
+   "coverage": 0.964,
+   "width": 0.2221,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "uniform / probability",
+   "coverage": 0.962,
+   "width": 0.1882,
+   "labels_saved_vs_uniform_hard": 1.39
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.969,
+   "width": 0.2264,
+   "labels_saved_vs_uniform_hard": 0.96
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.968,
+   "width": 0.1941,
+   "labels_saved_vs_uniform_hard": 1.31
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.964,
+   "width": 0.2169,
+   "labels_saved_vs_uniform_hard": 1.05
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "p(1-p) / probability",
+   "coverage": 0.96,
+   "width": 0.1879,
+   "labels_saved_vs_uniform_hard": 1.4
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.967,
+   "width": 0.2158,
+   "labels_saved_vs_uniform_hard": 1.06
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 100,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.967,
+   "width": 0.1858,
+   "labels_saved_vs_uniform_hard": 1.43
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "uniform / hard label",
+   "coverage": 0.953,
+   "width": 0.1495,
+   "labels_saved_vs_uniform_hard": 1.0
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "uniform / probability",
+   "coverage": 0.953,
+   "width": 0.126,
+   "labels_saved_vs_uniform_hard": 1.41
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "repeat disagreement / hard label",
+   "coverage": 0.958,
+   "width": 0.1531,
+   "labels_saved_vs_uniform_hard": 0.95
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "repeat disagreement / probability",
+   "coverage": 0.96,
+   "width": 0.1306,
+   "labels_saved_vs_uniform_hard": 1.31
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "p(1-p) / hard label",
+   "coverage": 0.951,
+   "width": 0.146,
+   "labels_saved_vs_uniform_hard": 1.05
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "p(1-p) / probability",
+   "coverage": 0.956,
+   "width": 0.1261,
+   "labels_saved_vs_uniform_hard": 1.4
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "sqrt(p(1-p)) / hard label",
+   "coverage": 0.942,
+   "width": 0.1457,
+   "labels_saved_vs_uniform_hard": 1.05
+  },
+  {
+   "calibration": "overconfident",
+   "budget": 200,
+   "design": "sqrt(p(1-p)) / probability",
+   "coverage": 0.947,
+   "width": 0.1249,
+   "labels_saved_vs_uniform_hard": 1.43
+  }
+ ]
+}

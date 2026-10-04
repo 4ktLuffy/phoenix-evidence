@@ -52,3 +52,13 @@ __all__ += ['CorrectedRate', 'corrected_rate', 'plan_labels']
 from phoenix_evidence._switch import SwitchImpact, switch_impact  # noqa: E402
 
 __all__ += ['SwitchImpact', 'switch_impact']
+from phoenix_evidence._canary import CanaryReport, canary, count_flips  # noqa: E402
+from phoenix_evidence._doctor import Diagnosis, Example, diagnose, pair_accuracy  # noqa: E402
+from phoenix_evidence._jury import Jury, jury  # noqa: E402
+from phoenix_evidence._price import Price, price_of_certainty  # noqa: E402
+
+__all__ += ['CanaryReport', 'Diagnosis', 'Example', 'Jury', 'Price', 'canary', 'count_flips', 'diagnose', 'jury',
+            'pair_accuracy', 'price_of_certainty']  # fmt: skip
+from phoenix_evidence._sequential import SequentialComparison  # noqa: E402
+
+__all__ += ['SequentialComparison']

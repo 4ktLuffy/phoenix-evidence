@@ -1,0 +1,311 @@
+diff --git a/packages/phoenix-client/src/phoenix/client/resources/experiments/__init__.py b/packages/phoenix-client/src/phoenix/client/resources/experiments/__init__.py
+index 206e271..39cc231 100644
+--- a/packages/phoenix-client/src/phoenix/client/resources/experiments/__init__.py
++++ b/packages/phoenix-client/src/phoenix/client/resources/experiments/__init__.py
+@@ -948,7 +948,8 @@ class Experiments:
+             task_runs = self._get_all_experiment_runs(experiment_id=experiment["id"])
+ 
+             expected_runs = len(examples_to_process) * repetitions
+-            actual_runs = len(task_runs)
++            # the server returns errored runs too; only runs without an error completed
++            actual_runs = sum(1 for run in task_runs if not run.get("error"))
+             if actual_runs < expected_runs:
+                 print(
+                     f"⚠️  Warning: Only {actual_runs} out of {expected_runs} expected runs were "
+@@ -1479,6 +1480,7 @@ class Experiments:
+         cursor: Optional[str] = None
+         page_size = 50
+         total_processed = 0
++        total_attempted = 0
+         total_completed = 0
+ 
+         while True:
+@@ -1531,6 +1533,7 @@ class Experiments:
+                     retries=retries,
+                 )
+ 
++                total_attempted += len(evaluation_tasks)
+                 total_completed += len([r for r in batch_eval_runs if r.error is None])
+ 
+                 cursor = body.get("next_cursor")
+@@ -1563,10 +1566,11 @@ class Experiments:
+ 
+         print("✅ Evaluations completed.")
+ 
+-        if total_completed < total_processed * len(evaluators_by_name):
++        # only the evaluations each run was missing are attempted, not every evaluator
++        if total_completed < total_attempted:
+             print(
+                 f"⚠️  Warning: Only {total_completed} out of "
+-                f"{total_processed * len(evaluators_by_name)} incomplete evaluations "
++                f"{total_attempted} incomplete evaluations "
+                 "were completed successfully."
+             )
+ 
+@@ -2794,7 +2798,8 @@ class AsyncExperiments:
+             task_runs = await self._get_all_experiment_runs(experiment_id=experiment["id"])
+ 
+             expected_runs = len(examples_to_process) * repetitions
+-            actual_runs = len(task_runs)
++            # the server returns errored runs too; only runs without an error completed
++            actual_runs = sum(1 for run in task_runs if not run.get("error"))
+             if actual_runs < expected_runs:
+                 print(
+                     f"⚠️  Warning: Only {actual_runs} out of {expected_runs} expected runs were "
+@@ -3332,6 +3337,7 @@ class AsyncExperiments:
+         cursor: Optional[str] = None
+         page_size = 100
+         total_processed = 0
++        total_attempted = 0
+         total_completed = 0
+ 
+         while True:
+@@ -3385,6 +3391,7 @@ class AsyncExperiments:
+                     retries=retries,
+                 )
+ 
++                total_attempted += len(evaluation_tasks)
+                 total_completed += len([r for r in batch_eval_runs if r.error is None])
+ 
+                 cursor = body.get("next_cursor")
+@@ -3417,10 +3424,11 @@ class AsyncExperiments:
+ 
+         print("✅ Evaluations completed.")
+ 
+-        if total_completed < total_processed * len(evaluators_by_name):
++        # only the evaluations each run was missing are attempted, not every evaluator
++        if total_completed < total_attempted:
+             print(
+                 f"⚠️  Warning: Only {total_completed} out of "
+-                f"{total_processed * len(evaluators_by_name)} incomplete evaluations "
++                f"{total_attempted} incomplete evaluations "
+                 "were completed successfully."
+             )
+ 
+diff --git a/src/phoenix/server/api/routers/v1/experiment_runs.py b/src/phoenix/server/api/routers/v1/experiment_runs.py
+index ecf86ac..7237dd4 100644
+--- a/src/phoenix/server/api/routers/v1/experiment_runs.py
++++ b/src/phoenix/server/api/routers/v1/experiment_runs.py
+@@ -3,7 +3,7 @@ from typing import Any, Optional
+ 
+ from fastapi import APIRouter, Depends, HTTPException, Query
+ from pydantic import Field
+-from sqlalchemy import select
++from sqlalchemy import delete, select
+ from starlette.requests import Request
+ from strawberry.relay import GlobalID
+ 
+@@ -15,7 +15,7 @@ from phoenix.server.api.routers.v1.datasets import DatasetExample
+ from phoenix.server.api.routers.v1.models import IsoDatetime
+ from phoenix.server.api.types.node import from_global_id_with_expected_type
+ from phoenix.server.authorization import is_not_locked
+-from phoenix.server.dml_event import ExperimentRunInsertEvent
++from phoenix.server.dml_event import ExperimentRunAnnotationDeleteEvent, ExperimentRunInsertEvent
+ 
+ from .models import V1RoutesBaseModel
+ from .utils import PaginatedResponseBody, ResponseBody, add_errors_to_responses
+@@ -120,6 +120,24 @@ async def create_experiment_run(
+                     "and cannot be updated"
+                 ),
+             )
++        if existing_run is not None:
++            # The errored run is replaced in place, keeping its id. Evaluations scored on the
++            # failed output no longer describe the run; remove them so they are re-evaluated
++            # (resume_evaluation treats a run with an annotation as already evaluated). Human
++            # annotations are kept: they are not re-created by a resume, and deleting a person's
++            # work is not this route's call.
++            deleted_annotation_ids = tuple(
++                await session.scalars(
++                    delete(models.ExperimentRunAnnotation)
++                    .where(
++                        models.ExperimentRunAnnotation.experiment_run_id == existing_run.id,
++                        models.ExperimentRunAnnotation.annotator_kind != "HUMAN",
++                    )
++                    .returning(models.ExperimentRunAnnotation.id)
++                )
++            )
++        else:
++            deleted_annotation_ids = ()
+         # Either no record exists, or existing record has an error - proceed with upsert
+         stmt = insert_on_conflict(
+             {
+@@ -139,6 +157,8 @@ async def create_experiment_run(
+         ).returning(models.ExperimentRun.id)
+         id_ = await session.scalar(stmt)
+ 
++    if deleted_annotation_ids:
++        request.state.event_queue.put(ExperimentRunAnnotationDeleteEvent(deleted_annotation_ids))
+     request.state.event_queue.put(ExperimentRunInsertEvent((id_,)))
+     run_gid = GlobalID("ExperimentRun", str(id_))
+     return CreateExperimentRunResponseBody(
+diff --git a/tests/integration/client/test_experiments.py b/tests/integration/client/test_experiments.py
+index cc0fece..a0bf065 100644
+--- a/tests/integration/client/test_experiments.py
++++ b/tests/integration/client/test_experiments.py
+@@ -2178,6 +2178,84 @@ class TestResumeOperations:
+             examples=examples_2,
+         )
+ 
++    @pytest.mark.parametrize("is_async", [True, False])
++    async def test_resumed_run_is_scored_on_its_new_output(
++        self,
++        is_async: bool,
++        _app: _AppInfo,
++        _setup_experiment_test: _SetupExperimentTest,
++        capsys: pytest.CaptureFixture[str],
++    ) -> None:
++        """
++        A failed run is evaluated on output None. When resume_experiment re-runs it, the old
++        score must not stay as the score of the new output, and the run summary must say that
++        a run failed.
++        """
++        client, helper = _setup_experiment_test(is_async)
++        dataset_id, _ = helper.create_dataset(
++            inputs=[{"idx": 0}, {"idx": 1}], outputs=[{"result": 0}, {"result": 1}]
++        )
++        dataset = await _await_or_return(client.datasets.get_dataset(dataset=dataset_id))
++        fail = [True]
++
++        def task(input: dict[str, Any]) -> int:
++            if fail[0] and input["idx"] == 1:
++                raise ValueError("boom")
++            return cast(int, input["idx"])
++
++        def exact(output: Any, expected: dict[str, Any]) -> float:
++            return 1.0 if output == expected["result"] else 0.0
++
++        ran = await _await_or_return(
++            client.experiments.run_experiment(
++                dataset=dataset, task=task, evaluators={"exact": exact}, print_summary=False
++            )
++        )
++        assert "Only 1 out of 2 expected runs" in capsys.readouterr().out
++
++        fail[0] = False
++        await _await_or_return(
++            client.experiments.resume_experiment(
++                experiment_id=ran["experiment_id"],
++                task=task,
++                evaluators={"exact": exact},
++                print_summary=False,
++            )
++        )
++        runs = helper.get_experiment_annotations(ran["experiment_id"])["runs"]["edges"]
++        scores = sorted(
++            a["annotation"]["score"] for r in runs for a in r["run"]["annotations"]["edges"]
++        )
++        assert scores == [1.0, 1.0]
++
++    @pytest.mark.parametrize("is_async", [True, False])
++    async def test_resume_evaluation_warns_only_about_what_still_failed(
++        self,
++        is_async: bool,
++        _app: _AppInfo,
++        _setup_experiment_test: _SetupExperimentTest,
++        capsys: pytest.CaptureFixture[str],
++    ) -> None:
++        client, helper = _setup_experiment_test(is_async)
++        dataset_id, examples = helper.create_dataset(
++            inputs=[{"idx": 0}, {"idx": 1}], outputs=[{"result": 0}, {"result": 1}]
++        )
++        exp = helper.create_experiment(dataset_id, repetitions=1)
++        helper.create_runs(
++            exp["id"], [(examples[i]["id"], 1, f"output_{i}", None) for i in range(2)]
++        )
++        # "a" is complete on both runs; "b" is missing on both
++        helper.create_evaluations(exp["id"], ["a"], [])
++        capsys.readouterr()
++        await _await_or_return(
++            client.experiments.resume_evaluation(
++                experiment_id=exp["id"],
++                evaluators={"a": lambda output: 1.0, "b": lambda output: 1.0},  # pyright: ignore[reportUnknownLambdaType,reportUnknownArgumentType]
++                print_summary=False,
++            )
++        )
++        assert "Warning: Only" not in capsys.readouterr().out
++
+     @pytest.mark.parametrize("is_async", [True, False])
+     async def test_early_exit_when_complete(
+         self, is_async: bool, _app: _AppInfo, _setup_experiment_test: _SetupExperimentTest
+diff --git a/tests/unit/server/api/routers/v1/test_experiments.py b/tests/unit/server/api/routers/v1/test_experiments.py
+index dfbe536..43a7fdd 100644
+--- a/tests/unit/server/api/routers/v1/test_experiments.py
++++ b/tests/unit/server/api/routers/v1/test_experiments.py
+@@ -266,6 +266,77 @@ async def test_experiment_json_and_csv_export_with_errored_run(
+     assert df.iloc[0]["error"] == "Missing template variable(s): text"
+ 
+ 
++async def test_replacing_an_errored_run_removes_evaluations_of_the_failed_output(
++    httpx_client: httpx.AsyncClient,
++    simple_dataset: Any,
++    db: DbSessionFactory,
++) -> None:
++    """
++    ``resume_experiment`` re-runs errored runs by upserting them in place. An evaluation scored on
++    the failed output must not survive as the score of the new output, or ``resume_evaluation``
++    treats the run as already evaluated and the stale score stays.
++    """
++    dataset_gid = GlobalID("Dataset", "0")
++    experiment_gid = (
++        await httpx_client.post(
++            f"v1/datasets/{dataset_gid}/experiments",
++            json={"version_id": None, "repetitions": 1},
++        )
++    ).json()["data"]["id"]
++    now = datetime.now(timezone.utc).isoformat()
++    run = {
++        "dataset_example_id": str(GlobalID("DatasetExample", "0")),
++        "output": None,
++        "repetition_number": 1,
++        "start_time": now,
++        "end_time": now,
++        "error": "boom",
++    }
++    response = await httpx_client.post(f"v1/experiments/{experiment_gid}/runs", json=run)
++    assert response.status_code == 200
++    run_gid = response.json()["data"]["id"]
++    response = await httpx_client.post(
++        "v1/experiment_evaluations",
++        json={
++            "experiment_run_id": run_gid,
++            "name": "exact",
++            "annotator_kind": "CODE",
++            "start_time": now,
++            "end_time": now,
++            "result": {"score": 0.0},
++        },
++    )
++    assert response.status_code == 200
++    response = await httpx_client.post(
++        "v1/experiment_evaluations",
++        json={
++            "experiment_run_id": run_gid,
++            "name": "reviewer note",
++            "annotator_kind": "HUMAN",
++            "start_time": now,
++            "end_time": now,
++            "result": {"label": "flaky"},
++        },
++    )
++    assert response.status_code == 200
++
++    response = await httpx_client.post(
++        f"v1/experiments/{experiment_gid}/runs", json={**run, "output": "B", "error": None}
++    )
++    assert response.status_code == 200
++    assert response.json()["data"]["id"] == run_gid
++    async with db() as session:
++        annotations = (
++            await session.scalars(
++                select(models.ExperimentRunAnnotation).where(
++                    models.ExperimentRunAnnotation.experiment_run_id
++                    == int(GlobalID.from_id(run_gid).node_id)
++                )
++            )
++        ).all()
++    assert [(a.name, a.annotator_kind) for a in annotations] == [("reviewer note", "HUMAN")]
++
++
+ async def test_experiment_404s_with_missing_dataset(
+     httpx_client: httpx.AsyncClient,
+     simple_dataset: Any,

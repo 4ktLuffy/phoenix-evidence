@@ -1,0 +1,42 @@
+{
+ "assumed in ppi_sim (60% / 8%)": [
+  {
+   "budget": 80,
+   "planned_coverage": 0.978,
+   "saved_vs_uniform_corrected": 1.21,
+   "saved_vs_human_only": 1.87
+  },
+  {
+   "budget": 160,
+   "planned_coverage": 0.965,
+   "saved_vs_uniform_corrected": 1.24,
+   "saved_vs_human_only": 2.2
+  },
+  {
+   "budget": 320,
+   "planned_coverage": 0.958,
+   "saved_vs_uniform_corrected": 1.31,
+   "saved_vs_human_only": 2.65
+  }
+ ],
+ "measured on Codex (24% / 0.8%)": [
+  {
+   "budget": 80,
+   "planned_coverage": 0.965,
+   "saved_vs_uniform_corrected": 1.11,
+   "saved_vs_human_only": 1.72
+  },
+  {
+   "budget": 160,
+   "planned_coverage": 0.973,
+   "saved_vs_uniform_corrected": 1.09,
+   "saved_vs_human_only": 1.94
+  },
+  {
+   "budget": 320,
+   "planned_coverage": 0.953,
+   "saved_vs_uniform_corrected": 1.13,
+   "saved_vs_human_only": 2.28
+  }
+ ]
+}

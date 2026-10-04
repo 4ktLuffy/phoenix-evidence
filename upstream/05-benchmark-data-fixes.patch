@@ -1,0 +1,115 @@
+diff --git a/js/benchmarks/evals-benchmarks/src/faithfulness.eval.ts b/js/benchmarks/evals-benchmarks/src/faithfulness.eval.ts
+index 60e2ef3..75fc531 100644
+--- a/js/benchmarks/evals-benchmarks/src/faithfulness.eval.ts
++++ b/js/benchmarks/evals-benchmarks/src/faithfulness.eval.ts
+@@ -78,9 +78,11 @@ const examples = [
+       'Indogrammodes is a genus of moths of the Crambidae family. It contains only one species, Indogrammodes pectinicornalis, which is found in India.India, officially the Republic of India ("Bhārat Gaṇarājya"), is a country in South Asia. It is the seventh-largest country by area, the second-most populous country (with over 1.2 billion people), and the most populous democracy in the world.',
+     question:
+       "Which genus of moth in the world's seventh-largest country contains only one species?",
+-    right_answer: "Crambidae",
+-    unfaithful_answer:
++    // The context names Crambidae as the family; the genus with one species is
++    // Indogrammodes.
++    right_answer:
+       "The Indogrammodes genus of moths found in India has only one species.",
++    unfaithful_answer: "Crambidae",
+   },
+   {
+     knowledge:
+diff --git a/js/benchmarks/evals-benchmarks/src/pii_detection.eval.ts b/js/benchmarks/evals-benchmarks/src/pii_detection.eval.ts
+index f1977bc..b361c79 100644
+--- a/js/benchmarks/evals-benchmarks/src/pii_detection.eval.ts
++++ b/js/benchmarks/evals-benchmarks/src/pii_detection.eval.ts
+@@ -105,7 +105,7 @@ px.describe(
+   },
+   {
+     description:
+-      "PII detection rate on a stratified 150-record sample of nvidia/Nemotron-PII (structured/unstructured x US/intl). All cases contain PII, so accuracy measures recall (detection rate).",
++      "PII detection rate on a stratified 150-record sample of nvidia/Nemotron-PII (structured/unstructured x US/intl). All cases contain PII, so accuracy measures recall (detection rate): a judge that always answers pii_detected scores 1.0 here, and false positives are measured by pii_detection.synthetic.",
+     metadata: { model: evalModelName },
+     acceptanceCriteria: [
+       { annotationName: "accuracy", metric: "average", threshold: 0.9 },
+diff --git a/js/benchmarks/evals-benchmarks/src/tool_invocation.eval.ts b/js/benchmarks/evals-benchmarks/src/tool_invocation.eval.ts
+index d42531f..4a18893 100644
+--- a/js/benchmarks/evals-benchmarks/src/tool_invocation.eval.ts
++++ b/js/benchmarks/evals-benchmarks/src/tool_invocation.eval.ts
+@@ -306,7 +306,8 @@ const examplesByCategory = {
+       format_type: "json_schema",
+     },
+     {
+-      input: "User: Book a flight from NYC to LAX for January 20th",
++      input:
++        "System: Today is Wednesday, January 10, 2024.\nUser: Book a flight from NYC to LAX for January 20th",
+       available_tools: BOOK_FLIGHT_TOOL_READABLE,
+       tool_selection: `BookFlightTool(origin="NYC", destination="LAX", date="2024-01-20")`,
+       expected_label: "correct" as const,
+@@ -323,7 +324,7 @@ const examplesByCategory = {
+     },
+     {
+       input:
+-        "User: Create a meeting titled 'Team Sync' tomorrow from 2pm to 3pm",
++        "System: Today is Monday, January 15, 2024.\nUser: Create a meeting titled 'Team Sync' tomorrow from 2pm to 3pm",
+       available_tools: JSON.stringify(
+         [CREATE_CALENDAR_EVENT_TOOL_JSON],
+         null,
+@@ -363,7 +364,7 @@ const examplesByCategory = {
+     },
+     {
+       input:
+-        "User: Book flights for our team of 5 - we need NYC to Chicago, then Chicago to Denver, and finally Denver back to NYC",
++        "System: Today is Wednesday, January 10, 2024.\nUser: Book flights for our team of 5 - we need NYC to Chicago on February 1st, then Chicago to Denver on February 3rd, and finally Denver back to NYC on February 5th",
+       available_tools: JSON.stringify([BOOK_FLIGHT_TOOL_JSON], null, 2),
+       tool_selection: `[
+         book_flight(origin="NYC", destination="ORD", date="2024-02-01", passengers=5),
+@@ -390,7 +391,8 @@ User: Actually, let me check the weather there first.`,
+       format_type: "human_readable",
+     },
+     {
+-      input: `User: I need to book travel for our Q1 offsite.
++      input: `System: Today is Wednesday, January 10, 2024.
++User: I need to book travel for our Q1 offsite.
+ Assistant: I can help with that. Where will the offsite be held?
+ User: We're going to Austin, Texas.
+ Assistant: Great choice! When is the offsite?
+@@ -403,7 +405,8 @@ User: Go ahead and book the outbound flight from San Francisco.`,
+       format_type: "json_schema",
+     },
+     {
+-      input: `User: I want to set up a recurring team standup.
++      input: `System: Today is Monday, January 15, 2024.
++User: I want to set up a recurring team standup.
+ Assistant: Sure! What time works best for your team?
+ User: 9:30 AM every day, for 15 minutes.
+ User: Let's start with just tomorrow's standup and I'll set up the recurring one later.`,
+@@ -465,7 +468,7 @@ User: Book the flight - I'm coming from Chicago.`,
+     },
+     {
+       input:
+-        "User: I need to schedule a dentist appointment for next Tuesday at 10am, should take about an hour",
++        "System: Today is Thursday, January 18, 2024.\nUser: I need to schedule a dentist appointment for next Tuesday at 10am, should take about an hour",
+       available_tools: JSON.stringify(
+         [
+           WEATHER_TOOL_JSON,
+@@ -497,7 +500,7 @@ User: Book the flight - I'm coming from Chicago.`,
+     },
+     {
+       input:
+-        "User: I need a flight from Phoenix to Portland on February 1st for 2 people",
++        "System: Today is Wednesday, January 10, 2024.\nUser: I need a flight from Phoenix to Portland on February 1st for 2 people",
+       available_tools: BOOK_FLIGHT_TOOL_READABLE,
+       tool_selection: `BookFlightTool(origin="PHX", destination="PDX", date="2024-02-01", passengers=2)`,
+       expected_label: "correct" as const,
+diff --git a/js/benchmarks/evals-benchmarks/src/tool_response_handling.eval.ts b/js/benchmarks/evals-benchmarks/src/tool_response_handling.eval.ts
+index 2e4f4dc..e7a3c87 100644
+--- a/js/benchmarks/evals-benchmarks/src/tool_response_handling.eval.ts
++++ b/js/benchmarks/evals-benchmarks/src/tool_response_handling.eval.ts
+@@ -501,7 +501,8 @@ const examplesByCategory = {
+         distance_meters: 42195,
+         duration_seconds: 2400,
+       }),
+-      output: "The destination is 42 km away, about 40 minutes by car.",
++      // 42,195 m is about 42 km: the transformation error is the factor of ten.
++      output: "The destination is 4.2 km away, about 40 minutes.",
+       expected_label: "incorrect" as const,
+       failure_mode: "improper_transformation",
+     },

@@ -58,6 +58,22 @@ def main() -> None:
     e2e_cert = json.loads((R / 'e2e_certify_feedback.json').read_text())
     e2e_rate = json.loads((R / 'e2e_corrected_rate.json').read_text())
     audit_labels = json.loads((R / 'label_audit.json').read_text())
+    csim = {
+        (r['shift'], str(r['prior']), r['same_rates']): r
+        for r in json.loads((R / 'canary_sim.json').read_text())['rows']
+    }
+    creal = json.loads((R / 'canary_real.json').read_text())
+    pairs = json.loads((R / 'pair_consistency.json').read_text())['faithfulness_with_upstream_05']
+    jury = json.loads((R / 'effective_judges.json').read_text())['all three']
+    price = next(
+        r
+        for r in json.loads((R / 'price_of_certainty.json').read_text())['rows']
+        if r['human_cost'] == 0.5 and r['disagreement'] < 0.1
+    )
+    fixes = json.loads((R / 'benchmark_fixes.json').read_text())
+    sens = json.loads((R / 'planner_sensitivity.json').read_text())
+    seq = {r['q']: r for r in json.loads((R / 'sequential_sim.json').read_text())['rows']}
+    swap = json.loads((R / 'canary_model_switch.json').read_text())
 
     # The two compare runs in the demo, parsed from their own output tables.
     tables = re.findall(
@@ -96,6 +112,32 @@ def main() -> None:
     page = TEMPLATE.format(
         shot=shot,
         shot_after=shot_after,
+        s_false=f'{seq[0.5]["sequential a=2.0"]["false_decision"]:.1%}',
+        s_naive=f'{seq[0.5]["naive sign test every batch"]["false_decision"]:.1%}',
+        s_small=f'{seq[0.6]["examples_fixed_80"]:,}',
+        s_large=int(seq[0.8]['sequential a=2.0']['median_examples']),
+        sw_codex=f'{swap["looks"][0]["flips"]}/{swap["looks"][0]["checks"]}',
+        sw_haiku=f'{sum(x["flips"] for x in swap["looks"][1:])}/{sum(x["checks"] for x in swap["looks"][1:])}',
+        sw_self=f'{swap["haiku_self_flip_rate"]:.1%}',
+        sw_rho=f'{swap["jury"]["correlation"]:.2f}',
+        c_null=f'{csim[(0.0, "default", False)]["canary"]["alarm_by_day_90"]:.1%}',
+        c_naive=f'{csim[(0.0, "default", False)]["naive_daily_test"]["alarm_by_day_90"]:.1%}',
+        c_d3=int(csim[(0.03, 'default', False)]['canary']['median_days_to_alarm']),
+        c_d5=int(csim[(0.05, 'default', False)]['canary']['median_days_to_alarm']),
+        cr_rep=f'{creal["looks"][0]["flips"]}/{creal["looks"][0]["checks"]}',
+        cr_low=f'{sum(x["flips"] for x in creal["looks"][1:])}/{sum(x["checks"] for x in creal["looks"][1:])}',
+        p_case=f'{pairs["case_accuracy"]:.0%}',
+        p_pair=f'{pairs["pair_accuracy"]:.0%}',
+        p_same=f'{pairs["same_label_on_both"]:.1%}',
+        j_rho=f'{jury["correlation"]:.2f}',
+        j_eff=f'{jury["effective_judges"]:.2f}',
+        j_maj=f'{jury["majority_accuracy"]:.1%}',
+        j_one=f'{jury["single_accuracy"]:.1%}',
+        pr_h=price['human_only_labels'],
+        pr_c=price['corrected_labels'],
+        fx_before=fixes['flagged_before'],
+        fx_after=fixes['flagged_after'],
+        plan_gain=f'{min(r["saved_vs_uniform_corrected"] for v in sens.values() for r in v):.2f}-{max(r["saved_vs_uniform_corrected"] for v in sens.values() for r in v):.2f}',
         ppi80=ppi[80]['human_labels_for_same_width'],
         ppi160=ppi[160]['human_labels_for_same_width'],
         ppi_cov=f'{min(r["active_coverage"] for r in ppi.values()):.0%}',
@@ -200,7 +242,7 @@ footer {{ color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--r
 <header style="display:grid;gap:16px">
   <div class="eyebrow">phoenix-evidence &middot; findings on Arize Phoenix main @ 9212a42</div>
   <h1>Phoenix shows a number. This shows whether it means anything.</h1>
-  <p class="lede">We read Phoenix's evaluation code, ran its own benchmark suites and evaluators, and checked the numbers its pages show. We found two bugs on the experiment compare page, two reversed labels in a benchmark, and gates too small to decide. Then we built the missing piece as a tool on top of Phoenix: margins of error, judge certificates, and CI gates that can say "not enough evidence".</p>
+  <p class="lede">We read Phoenix's evaluation code, ran its own benchmark suites and evaluators, and checked the numbers its pages show. We found bugs on the experiment compare page, in experiment resume and in custom evaluators, labels and inputs in its benchmarks that no careful judge can agree with, and gates too small to decide, and wrote the fixes as patches to Phoenix. Then we built the missing piece as a tool on top of Phoenix: margins of error, judge certificates, CI gates that can say "not enough evidence", a drift check that is safe to run every day, a dataset doctor, and the price of an answer.</p>
   <p class="meta"><a href="{repo}">Code, tests and every measurement</a> &middot; <a href="{repo}/blob/main/FINDINGS.md">FINDINGS.md</a> with file and line for each claim &middot; not affiliated with Arize</p>
 </header>
 
@@ -215,9 +257,11 @@ footer {{ color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--r
   <div class="ledger">
     <div class="item"><span class="pill bad">bug &middot; fixed</span><div><h3>The compare page reports regressions between identical experiments</h3><p>The base side sums every span of every repetition; the compare side takes the single cheapest span. Two identical experiments disagree as soon as a trace has two LLM spans. A new test fails on main and passes with the fix on SQLite and Postgres. <a href="{px}/src/phoenix/server/api/queries.py#L745-L801">queries.py:745</a> &middot; <a href="{repo}/blob/main/upstream/01-compare-page-best-run.patch">patch</a></p></div></div>
     <div class="item"><span class="pill bad">bug &middot; fixed</span><div><h3>"+0%" for changes that do not exist</h3><p>A missing value, or a base of 0, reads as "no change". The fix returns <code>--</code>, Phoenix's own text for a missing number, with tests. <a href="{repo}/blob/main/upstream/02-compare-page-delta-text.patch">patch</a></p></div></div>
+    <div class="item"><span class="pill bad">bug &middot; fixed</span><div><h3>Resuming an experiment keeps a score computed on the failed output</h3><p>A failed run is still evaluated, on output <code>None</code>. When <code>resume_experiment</code> re-runs it, the server replaces the run in place and keeps the old annotation, so <code>resume_evaluation</code> skips it: the output becomes correct and the score stays 0, for good. The fix removes the annotations of an errored run the server replaces; tests fail before and pass after. Two warnings on the same path that never or wrongly fire are fixed too. <a href="{repo}/blob/main/upstream/07-resume-stale-evaluations.patch">patch</a></p></div></div>
     <div class="item"><span class="pill bad">data bug</span><div><h3>Two labels in the faithfulness benchmark are reversed</h3><p>The "right" answer to the moth question is the family, Crambidae; the answer labelled unfaithful states exactly what the context says. The certificate's label review flagged four faithfulness cases, where the judge disagreed with the label on every repeat: this pair, and two that are contestable. <a href="{px}/js/benchmarks/evals-benchmarks/src/faithfulness.eval.ts#L76-L84">faithfulness.eval.ts:76</a></p></div></div>
     <div class="item"><span class="pill warn">misleading</span><div><h3>Human feedback erases the judge it corrects, or blurs into it</h3><p>With default settings a human label on a span replaces the judge's label, so the data needed to check the judge is gone; in the span annotation panel, changing the pre-filled label rewrites the judge's annotation as a human one. When both are kept, the project page averages them: it read 0.25 where the judge said 1.0 and the human said 0.0. Reproduced on a live Phoenix, through the API and the UI.</p></div></div>
-    <div class="item"><span class="pill warn">benchmark design</span><div><h3>Four tool-invocation cases hinge on a date nobody stated</h3><p>Re-judging {audit_cases} cases across {audit_suites} suites, twice each, and reading all 19 cases where the judge consistently disagreed with the label: in tool invocation, 4 of 31 "correct" calls turn "tomorrow" or "February 1st" into a 2024 date with no current date in the input, and a fifth invents dates the user never gave. A careful judge calls them unsupported. Elsewhere the flags mostly describe the judge: too lenient on the correctness rubric's clauses on hedged and vague answers, too strict on common knowledge. <a href="{repo}/blob/main/results/label_audit_review.md">Every flag, read</a></p></div></div>
+    <div class="item"><span class="pill warn">benchmark design</span><div><h3>Four tool-invocation cases hinge on a date nobody stated</h3><p>Re-judging {audit_cases} cases across {audit_suites} suites, twice each, and reading all 19 cases where the judge consistently disagreed with the label: in tool invocation, 4 of 31 "correct" calls turn "tomorrow" or "February 1st" into a 2024 date with no current date in the input, and a fifth invents dates the user never gave. A careful judge calls them unsupported. Elsewhere the flags mostly describe the judge: too lenient on the correctness rubric's clauses on hedged and vague answers, too strict on common knowledge. <a href="{repo}/blob/main/results/label_audit_review.md">Every flag, read</a>. The data fixes: re-judged, the changed cases went from {fx_before} flags to {fx_after}. <a href="{repo}/blob/main/upstream/05-benchmark-data-fixes.patch">patch</a></p></div></div>
+    <div class="item"><span class="pill warn">measured</span><div><h3>The faithfulness judge passes per case and fails per pair</h3><p>The suite is built from faithful/unfaithful twins. With the reversed pair fixed, the judge scores {p_case} per case, over the 70% bar, but gets both twins right in {p_pair} of pairs and gives both the same label in {p_same} of pair judgments.</p></div></div>
     <div class="item"><span class="pill warn">measured</span><div><h3>The benchmark gates cannot decide</h3><p>Across the twelve two-class suites, the full gate passes a judge 5 points below the bar {lo_pass} to {hi_pass} of the time. No suite can tell two good judges apart; pooled over the Jev post's 517 examples, the smallest detectable difference is {jev_detect} points, and one point needs about {jev_one} examples.</p></div></div>
   </div>
 </section>
@@ -249,6 +293,18 @@ def test_refund(case): ...</pre>
 </section>
 
 <section>
+  <div class="eyebrow">Day to day</div>
+  <h2>Watch the judge, check the data, price the answer</h2>
+  <div class="ledger">
+    <div class="item"><span class="pill">canary</span><div><h3>Has the judge drifted?</h3><p>Re-score a frozen set as often as you like. Over 90 daily checks with no drift, an ordinary daily test raised a false alarm in {c_naive} of simulated runs; the canary, a sequential test that stays valid under repeated looks, in {c_null}. It caught a 3-point rise in a median of {c_d3} days and a 5-point rise in {c_d5}. On real Codex labels, a second run flipped {cr_rep} and a switch to low reasoning {cr_low}: no drift, correctly. Swapping the judge for Claude Haiku flipped {sw_haiku} against a second Codex run's {sw_codex}, and Haiku disagreed with itself on {sw_self}: at 5% allowed that was not yet enough evidence; just above Codex's own noise it would have alarmed within the first pass. Set the allowed rate from the trusted judge's repeat noise.</p></div></div>
+    <div class="item"><span class="pill">sequential</span><div><h3>Can I stop the experiment yet?</h3><p>Rerun the comparison while both experiments are still running; it decides as soon as the evidence allows. Re-testing after every batch with an ordinary test declared a winner where there was none in {s_naive} of simulated runs; this, in {s_false}. You need not guess the effect in advance: a test sized for a small effect spends {s_small} examples, while on a large one this stops near {s_large}.</p></div></div>
+    <div class="item"><span class="pill">doctor</span><div><h3>Is the dataset sound?</h3><p>Copies, near-copies with different labels, test examples leaking into another split, labels a constant judge passes. On Phoenix's suites it found no copies, and 12 contrast pairs, all deliberate, which led to the per-pair score above.</p></div></div>
+    <div class="item"><span class="pill">price</span><div><h3>What will the answer cost?</h3><p>For &plusmn;0.05 on 10,000 traces with a judge that disagrees with humans 5% of the time: {pr_h} human labels alone, or {pr_c} with the judge, from the same formulas the estimates use.</p></div></div>
+    <div class="item"><span class="pill">jury</span><div><h3>Is a jury worth it?</h3><p>Three runs of one model make the same mistakes (error correlation {j_rho}): together they are worth {j_eff} independent judges, and their majority ({j_maj}) does not beat the best single run ({j_one}). Codex and Haiku, two different models, err on different cases (correlation {sw_rho}).</p></div></div>
+  </div>
+</section>
+
+<section>
   <div class="eyebrow">Inside Phoenix</div>
   <h2>The same evidence on Phoenix's own compare page</h2>
   <p>A working branch of Phoenix: one GraphQL field and one line under each compare value, with the two bug fixes. Under Phoenix's "0.96 +14.49%" it now says the gain is not detectable and how many examples would tell. The cost cards read <code>--</code>. Tested on SQLite and Postgres; <a href="{repo}/blob/main/upstream/04-phoenix-with-evidence-branch.patch">the patch</a> applies to main.</p>
@@ -258,7 +314,7 @@ def test_refund(case): ...</pre>
 <section>
   <div class="eyebrow">For online evals</div>
   <h2>What humans would say, from a judge and a few labels</h2>
-  <p>An online judge scores every trace; humans label a few. <code>plan-labels</code> picks which spans to label (more often where the judge's runs disagree) and puts them in a Phoenix dataset linked to the spans; <code>corrected-rate</code> combines the labels with the judge. In simulation, 80 planned labels give the interval that {ppi80} random labels would, and 160 the one that {ppi160} would; coverage stayed at or above {ppi_cov}. On 5,000 spans in a live Phoenix, the judge alone said {sc_judge}; the corrected rate was {sc_est} [{sc_lo}, {sc_hi}] and the truth {sc_truth}. Comparing two 6,000-run experiments took {sc_compare} seconds.</p>
+  <p>An online judge scores every trace; humans label a few. <code>plan-labels</code> picks which spans to label (more often where the judge's runs disagree) and puts them in a Phoenix dataset linked to the spans; <code>corrected-rate</code> combines the labels with the judge. In simulation, 80 labels give the interval that {ppi80} human labels alone would, and 160 the one that {ppi160} would; coverage stayed at or above {ppi_cov}. Almost all of that is the correction: choosing which spans to label adds {plan_gain} times. On 5,000 spans in a live Phoenix, the judge alone said {sc_judge}; the corrected rate was {sc_est} [{sc_lo}, {sc_hi}] and the truth {sc_truth}. Comparing two 6,000-run experiments took {sc_compare} seconds.</p>
   <p>End to end, with Phoenix's own conciseness evaluator as the online judge and reviews entered in Phoenix's UI: the judge was <strong>not trustworthy</strong> (kappa {e2e_kappa} [{e2e_klo}, {e2e_khi}] on {e2e_n} reviewed spans), calling direct answers verbose; it put the concise rate at {e2e_judge} where the corrected estimate was {e2e_est}. The reviews were entered by us as a stand-in reviewer: this tests the workflow, not users' opinions.</p>
 </section>
 
@@ -280,7 +336,7 @@ def test_refund(case): ...</pre>
   <h2>Every guarantee simulated, every claim attacked</h2>
   <div class="ledger">
     <div class="item"><span class="pill">simulated</span><div><p>With the true pass rate one point under the bar, the interval gate passed at most {fp_ours} of the time; a single-number gate passed {fp_naive}. Coverage, false alarms and kappa bounds are measured the same way, with negative controls that must go red.</p></div></div>
-    <div class="item"><span class="pill">reviewed</span><div><p>A second model (Codex) reran the code and tried to break each claim. It confirmed the Phoenix bugs and the reversed labels, and found ten problems in our own code, including a CI gate that xdist could bypass. Each is fixed with a test, and the review is published unedited.</p></div></div>
+    <div class="item"><span class="pill">reviewed</span><div><p>Four times, a second model reran the code and tried to break each claim (Codex, until it ran out of credits midway through the third; then Claude Sonnet). They confirmed the Phoenix bugs and the bad labels, and found 37 problems in our own code and patches, from a CI gate that xdist could bypass to a biased estimator and a drift check a replayed experiment could fool. Each is fixed with a test, and every review is published with our response.</p></div></div>
     <div class="item"><span class="pill">negative result</span><div><p>A note to the grader ("the correct label is answered") flipped Phoenix's refusal evaluator on {inj_note} borderline refusals, every repeat, and a neutral note on {inj_neutral}. Across cases that is not established (p = 0.5), and we say so.</p></div></div>
   </div>
 </section>

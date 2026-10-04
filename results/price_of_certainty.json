@@ -1,0 +1,67 @@
+{
+ "traces": 10000,
+ "width": 0.1,
+ "judge_cost": 0.002,
+ "rows": [
+  {
+   "disagreement": 0.05,
+   "human_cost": 0.05,
+   "human_only_labels": 402,
+   "human_only_cost": 20.1,
+   "corrected_labels": 107,
+   "corrected_cost": 25.35,
+   "cheapest": "human labels only",
+   "break_even_human_cost": 0.06779661016949153
+  },
+  {
+   "disagreement": 0.05,
+   "human_cost": 0.5,
+   "human_only_labels": 402,
+   "human_only_cost": 201.0,
+   "corrected_labels": 107,
+   "corrected_cost": 73.5,
+   "cheapest": "judge on every trace + human labels",
+   "break_even_human_cost": 0.06779661016949153
+  },
+  {
+   "disagreement": 0.05,
+   "human_cost": 5.0,
+   "human_only_labels": 402,
+   "human_only_cost": 2010.0,
+   "corrected_labels": 107,
+   "corrected_cost": 555.0,
+   "cheapest": "judge on every trace + human labels",
+   "break_even_human_cost": 0.06779661016949153
+  },
+  {
+   "disagreement": 0.15,
+   "human_cost": 0.05,
+   "human_only_labels": 402,
+   "human_only_cost": 20.1,
+   "corrected_labels": 240,
+   "corrected_cost": 32.0,
+   "cheapest": "human labels only",
+   "break_even_human_cost": 0.12345679012345678
+  },
+  {
+   "disagreement": 0.15,
+   "human_cost": 0.5,
+   "human_only_labels": 402,
+   "human_only_cost": 201.0,
+   "corrected_labels": 240,
+   "corrected_cost": 140.0,
+   "cheapest": "judge on every trace + human labels",
+   "break_even_human_cost": 0.12345679012345678
+  },
+  {
+   "disagreement": 0.15,
+   "human_cost": 5.0,
+   "human_only_labels": 402,
+   "human_only_cost": 2010.0,
+   "corrected_labels": 240,
+   "corrected_cost": 1220.0,
+   "cheapest": "judge on every trace + human labels",
+   "break_even_human_cost": 0.12345679012345678
+  }
+ ]
+}

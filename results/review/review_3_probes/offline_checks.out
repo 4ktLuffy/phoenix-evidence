@@ -1,0 +1,46 @@
+ADAPTER changed Look(label='changed', checks=100, flips=0, total_checks=100, total_flips=0, evidence=0.15966386554621842, drifted=False)
+ADAPTER partial Look(label='partial', checks=5, flips=5, total_checks=5, total_flips=5, evidence=199.32121682665192, drifted=True)
+ADAPTER missing Look(label='missing', checks=1, flips=0, total_checks=1, total_flips=0, evidence=0.950000000000005, drifted=False)
+REPLAY Look(label='oneflip', checks=10, flips=1, total_checks=190, total_flips=19, evidence=20.835062647371128, drifted=True)
+PRICE Plan(name='human labels only', labels=62, judge_calls=0, cost=62) width41 0.08604383629402844 width62 0.08621274382946226
+completeness.eval.ts: 45 examples: 5 pairs of (near-)copies with different labels: a label error, or a deliberate minimal pair
+   CONFLICT 2 vs 35 (similarity 0.803): labels complete / incomplete
+   CONFLICT 13 vs 30 (similarity 0.859): labels complete / incomplete
+   CONFLICT 15 vs 17 (similarity 0.917): labels complete / incomplete
+   CONFLICT 20 vs 30 (similarity 0.903): labels complete / incomplete
+   CONFLICT 34 vs 35 (similarity 0.976): labels complete / incomplete
+   near-copy 13 vs 20 (similarity 0.821): labels complete / complete
+   near-copy 33 vs 35 (similarity 0.806): labels incomplete / incomplete
+conciseness.eval.ts: 34 examples: a judge that always answers 'verbose' passes the bar; the smallest class has 9 examples: its recall cannot be measured
+correctness.eval.ts: 80 examples: no problems found
+faithfulness.eval.ts: 16 examples: 8 pairs of (near-)copies with different labels: a label error, or a deliberate minimal pair; only a perfect score clears the bar on an interval; the smallest class has 8 examples: its recall cannot be measured
+   CONFLICT 0 vs 1 (similarity 0.911): labels faithful / unfaithful
+   CONFLICT 2 vs 3 (similarity 0.827): labels faithful / unfaithful
+   CONFLICT 4 vs 5 (similarity 0.857): labels faithful / unfaithful
+   CONFLICT 6 vs 7 (similarity 0.94): labels faithful / unfaithful
+   CONFLICT 8 vs 9 (similarity 0.904): labels faithful / unfaithful
+   CONFLICT 10 vs 11 (similarity 0.929): labels faithful / unfaithful
+   CONFLICT 12 vs 13 (similarity 0.889): labels faithful / unfaithful
+   CONFLICT 14 vs 15 (similarity 0.932): labels faithful / unfaithful
+hallucination.eval.ts: 37 examples: no problems found
+pii_detection.eval.ts: 150 examples: one label only: a judge that always gives it scores 100%
+pii_detection.synthetic.eval.ts: 40 examples: no problems found
+refusal.eval.ts: 40 examples: no problems found
+retrieval_relevance.eval.ts: 33 examples: no problems found
+tool_invocation.eval.ts: 31 examples: no problems found
+   near-copy 27 vs 28 (similarity 0.806): labels correct / correct
+tool_response_handling.eval.ts: 51 examples: no problems found
+toxicity.eval.ts: 58 examples: no problems found
+user_friction.eval.ts: 40 examples: no problems found
+MATCH dataset_doctor True
+completeness {'pairs': 5, 'pair_judgments': 10, 'case_accuracy': 1.0, 'pair_accuracy': 1.0, 'same_label_on_both': 0.0}
+faithfulness {'pairs': 8, 'pair_judgments': 16, 'case_accuracy': 0.625, 'pair_accuracy': 0.4375, 'same_label_on_both': 0.375}
+faithfulness with the moth pair fixed {'pairs': 8, 'pair_judgments': 16, 'case_accuracy': 0.75, 'pair_accuracy': 0.5625, 'same_label_on_both': 0.375}
+MATCH pair_consistency True
+two runs, no reasoning: 2 judges on 505 cases: errors correlate at 0.78, so the jury is worth 1.12 independent judges; majority accuracy 0.943 vs 0.954 for the best single judge
+no reasoning + low reasoning: 2 judges on 505 cases: errors correlate at 0.76, so the jury is worth 1.13 independent judges; majority accuracy 0.941 vs 0.952 for the best single judge
+all three: 3 judges on 505 cases: errors correlate at 0.77, so the jury is worth 1.18 independent judges; majority accuracy 0.952 vs 0.954 for the best single judge
+MATCH effective_judges True
+E2E 40 ['codex:gpt-5.6-luna@low']
+CANARY_SIM {'alarm_by_day_90': 0.0155}
+CANARY_SIM {'alarm_by_day_90': 0.017}

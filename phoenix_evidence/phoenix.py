@@ -15,6 +15,7 @@ experiment views, next to the runs it summarises.
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -266,7 +267,66 @@ def compare_experiments(
         worst = (max(seen) if name in lower else min(seen)) if seen else 0.0
         by_metric[name] = compare(base[name], candidate[name], alpha=alpha, missing_as=worst)
     survives = holm({n: c.p_value for n, c in by_metric.items()}, alpha)
-    return ExperimentComparison(base_id, candidate_id, by_metric, survives, lower, only_in)
+    return ExperimentComparison(
+        _experiment_name(client, base_id), _experiment_name(client, candidate_id), by_metric, survives, lower, only_in
+    )
+
+
+@dataclass
+class SequentialReport:
+    metrics: dict[str, Any]  # name -> SequentialComparison, judged on everything finished so far
+    only_in: dict[str, str] = field(default_factory=dict)  # metric -> 'base' | 'candidate': not tested
+    alpha_per_metric: float = 0.05
+
+
+def sequential_compare_experiments(
+    client: Any, base_id: str, candidate_id: str, alpha: float = 0.05, lower_is_better: Iterable[str] = ('task_error',)
+) -> SequentialReport:
+    """Has the comparison been decided yet, metric by metric? Safe to rerun while both experiments are
+    still running.
+
+    Each call judges the examples both have finished as one look: the evidence depends only on how
+    many disagreements went each way, so as long as later calls only add examples (and which examples
+    finish first does not depend on how they score), every call is one more look at one growing
+    sample and Ville's inequality covers them all. A decision is made on the current evidence only,
+    never by replaying the examples in some order that was not the real one. Each metric uses alpha
+    divided by every metric either experiment scored (Bonferroni); a metric only one side scored is
+    reported in `only_in`, not tested. A run without a score counts as the worst possible score when
+    the metric's scores lie in [0, 1] (fixed, so it cannot shift between calls), else the worst seen;
+    repetitions of an example are averaged.
+    """
+    from phoenix_evidence._sequential import SequentialComparison
+
+    base, candidate = experiment_scores(client, base_id), experiment_scores(client, candidate_id)
+    lower = frozenset(lower_is_better)
+    every = set(base) | set(candidate)
+    per_metric = alpha / max(len(every), 1)
+    report = SequentialReport({}, {n: 'base' if n in base else 'candidate' for n in every - (set(base) & set(candidate))},
+                              per_metric)  # fmt: skip
+    for name in sorted(set(base) & set(candidate)):
+        seen = [x for side in (base[name], candidate[name]) for v in side.values() for x in v if x is not None]
+        if all(0 <= x <= 1 for x in seen):
+            worst = 1.0 if name in lower else 0.0
+        else:
+            worst = (max(seen) if name in lower else min(seen)) if seen else 0.0
+        seq = SequentialComparison(alpha=per_metric, higher_is_better=name not in lower)
+        pairs = []
+        for example in sorted(set(base[name]) & set(candidate[name])):
+            b, c = base[name][example], candidate[name][example]
+            if b and c:
+                pairs.append((sum(worst if x is None else x for x in b) / len(b),
+                              sum(worst if x is None else x for x in c) / len(c)))  # fmt: skip
+        report.metrics[name] = seq.look(pairs)
+    return report
+
+
+def _experiment_name(client: Any, experiment_id: str) -> str:
+    """'name (id)' for display, or the id alone when the server cannot say."""
+    try:
+        name = _get(client.experiments.get(experiment_id=experiment_id), 'name')
+    except Exception:
+        return experiment_id
+    return f'{name} ({experiment_id})' if name else experiment_id
 
 
 # --- Datasets -------------------------------------------------------------------------------------
@@ -417,6 +477,26 @@ def judge_labels(
     return {s: v[1] for s, v in latest.items()}, {s: float(len(v) > 1) for s, v in seen.items()}
 
 
+def judge_probabilities(
+    annotations: Iterable[Mapping[str, Any]], name: str, identifier: str | None = None
+) -> dict[str, float]:
+    """The judge's score per span, read as its probability of a pass, picked as `judge_labels` picks
+    the label (that identifier's, else the latest LLM annotation). Scores outside [0, 1] are refused."""
+    latest: dict[str, tuple[float, float]] = {}
+    for a in annotations:
+        if a.get('name') != name or a.get('annotator_kind') != 'LLM':
+            continue
+        score = (a.get('result') or {}).get('score')
+        if score is None or (identifier is not None and (a.get('identifier') or '') != identifier):
+            continue
+        if not 0 <= float(score) <= 1:
+            raise ValueError(f'span {a["span_id"]}: score {score} is not a probability')
+        stamp = _instant(a.get('updated_at') or a.get('created_at'))
+        if a['span_id'] not in latest or stamp >= latest[a['span_id']][0]:
+            latest[a['span_id']] = (stamp, float(score))
+    return {s: v[1] for s, v in latest.items()}
+
+
 def plan_label_queue(
     client: Any,
     project: str,
@@ -427,10 +507,15 @@ def plan_label_queue(
     create_dataset: bool = True,
     human_annotation: str | None = None,
     judge_identifier: str | None = None,
+    judge_probability: bool = False,
 ) -> dict[str, Any]:
     """Choose which judged spans humans should label, and put them in a Phoenix dataset linked to the spans.
 
     Spans where the judge's runs disagree are more likely to be chosen; every span keeps a chance.
+    With `judge_probability`, the judge's annotation score is read as its probability of a pass: the
+    plan uses sqrt(p(1 - p)) as the doubt and freezes the probabilities, which `corrected_rate_from_plan`
+    then uses as the judge's value (bench/planner_probabilities.py: 1.3-1.6 times the labels' worth
+    of a hard label with uniform sampling, when the probability is not overconfident).
     The returned plan (save it) records each span's inclusion probability, which `corrected_rate`
     needs: the human labels must come from this draw, not from spans people picked themselves.
     """
@@ -441,6 +526,10 @@ def plan_label_queue(
         spans=spans, project_identifier=project, include_annotation_names=[name]
     )
     labels, doubt = judge_labels(annotations, name, judge_identifier)
+    probability = judge_probabilities(annotations, name, judge_identifier) if judge_probability else None
+    if probability is not None:
+        labels = {s: v for s, v in labels.items() if s in probability}
+        doubt = {s: 2 * math.sqrt(p * (1 - p)) for s, p in probability.items()}
     population = sorted(labels)
     chosen_idx, pi = plan_labels([doubt.get(s, 0.0) for s in population], budget, seed=seed)
     chosen = [population[i] for i in chosen_idx]
@@ -448,6 +537,7 @@ def plan_label_queue(
         'project': project, 'annotation': name, 'human_annotation': human_annotation or name, 'judge_identifier': judge_identifier, 'seed': seed, 'budget': budget,
         'population': population, 'inclusion': dict(zip(population, pi, strict=True)), 'chosen': chosen,
         'judge': {span: labels[span] for span in population},
+        'judge_probability': {span: probability[span] for span in population} if probability is not None else None,
         'judge_unsure_spans': sum(1 for s in population if doubt.get(s)),
         'created_at': datetime.now(timezone.utc).isoformat(), 'dataset': None,
     }  # fmt: skip
@@ -517,13 +607,97 @@ def corrected_rate_from_plan(
         out['result'] = None
         out['refused'] = f'{len(missing)} chosen spans are not labelled yet; label them all, then rerun'
         return out
+    probability = plan.get('judge_probability')
     r = corrected_rate(
-        [float(labels[s] == pass_label) for s in population],
+        [probability[s] if probability else float(labels[s] == pass_label) for s in population],
         labelled,
         inclusion=[plan['inclusion'][s] for s in population],
     )
     out.update(
-        estimate=r.estimate, interval=list(r.interval), judge_rate=r.judge_rate,
+        estimate=r.estimate, raw_estimate=r.raw_estimate, interval=list(r.interval), judge_rate=r.judge_rate,
         human_only=list(r.human_only), judge_weight=r.weight, result=str(r),
     )  # fmt: skip
     return out
+
+
+def experiment_judgments(client: Any, experiment_id: str, evaluator: str) -> dict[str, list[Any]]:
+    """One evaluator's verdicts in an experiment: example -> one per repetition, the label when the
+    evaluator gives one, else its score; None when the run or the evaluation errored or is missing."""
+    ran = client.experiments.get_experiment(experiment_id=experiment_id)
+    verdict: dict[str, Any] = {}
+    for ev in _get(ran, 'evaluation_runs') or []:
+        if _get(ev, 'name') != evaluator:
+            continue
+        result = _get(ev, 'result') or {}
+        label, score = _get(result, 'label'), _get(result, 'score')
+        verdict[_get(ev, 'experiment_run_id')] = None if _get(ev, 'error') else (label if label is not None else score)
+    out: dict[str, list[Any]] = defaultdict(list)
+    for run in sorted(
+        _get(ran, 'task_runs') or [], key=lambda r: (_get(r, 'dataset_example_id'), _get(r, 'repetition_number') or 1)
+    ):
+        example = str(_get(run, 'dataset_example_id'))
+        out[example].append(None if _get(run, 'error') else verdict.get(_get(run, 'id')))
+    return dict(out)
+
+
+def judge_canary(
+    client: Any,
+    reference_id: str,
+    check_ids: Sequence[str],
+    evaluator: str,
+    allowed: float,
+    alpha: float = 0.05,
+) -> Any:
+    """Has the judge drifted since `reference_id`? Each check is a later experiment on the same dataset
+    that re-ran the judge as `evaluator`; checks are read in the order given (oldest first).
+
+    The frozen verdicts are the reference experiment's first repetition per example (labels when the
+    evaluator gives them, else scores); examples with no verdict there are left out. A check must
+    re-score the whole frozen set: an example it errored on, or did not run, counts as a flip, so a
+    check on a hand-picked subset cannot raise or hide evidence. Each check is used once: replaying
+    one experiment would count its noise again.
+    """
+    from phoenix_evidence._canary import canary, count_flips
+
+    if len(set(check_ids)) != len(check_ids) or reference_id in check_ids:
+        raise ValueError('each check must be a different experiment, and not the reference')
+    ref = experiment_judgments(client, reference_id, evaluator)
+    reference = {ex: runs[0] for ex, runs in ref.items() if runs and runs[0] is not None}
+    if not reference:
+        raise ValueError(f'the reference experiment has no {evaluator!r} verdicts')
+    looks = []
+    for check_id in check_ids:
+        today = experiment_judgments(client, check_id, evaluator)
+        n, k = count_flips(reference, today)
+        skipped = [ex for ex in reference if not today.get(ex)]
+        looks.append((_experiment_name(client, check_id), n + len(skipped), k + len(skipped)))
+    return canary(looks, allowed, alpha)
+
+
+def doctor_dataset(
+    client: Any,
+    dataset: str,
+    label_key: str = 'label',
+    splits: Sequence[str] = (),
+    threshold: float | None = None,
+    similar: float = 0.8,
+) -> Any:
+    """Diagnose a Phoenix dataset: copies, conflicting labels, leakage between `splits`, balance.
+
+    Phoenix filters examples by split but does not list an example's splits, so each named split is
+    read on its own and the examples are tagged with every split they appear in.
+    """
+    from phoenix_evidence._doctor import Example, diagnose
+
+    tags: dict[str, list[str]] = defaultdict(list)
+    for split in splits:
+        for example in client.datasets.get_dataset(dataset=dataset, splits=[split]).examples:
+            tags[str(example['id'])].append(split)
+    examples = []
+    for example in client.datasets.get_dataset(dataset=dataset).examples:
+        label = (example.get('output') or {}).get(label_key)
+        eid = str(example['id'])
+        examples.append(
+            Example(eid, example.get('input') or {}, None if label is None else str(label), tuple(tags[eid]))
+        )
+    return diagnose(examples, similar=similar, threshold=threshold)

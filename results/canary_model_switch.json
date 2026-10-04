@@ -1,0 +1,124 @@
+{
+ "frozen": "codex:gpt-5.6-luna@none, first run",
+ "new_judge": "claude-haiku-4-5 (Claude Code subagent, exact Phoenix evaluator prompt)",
+ "allowed": 0.05,
+ "cases": 168,
+ "looks": [
+  {
+   "label": "Codex, second run",
+   "checks": 168,
+   "flips": 3,
+   "total_checks": 168,
+   "total_flips": 3,
+   "evidence": 0.1422367458998094,
+   "drifted": false
+  },
+  {
+   "label": "Haiku, part 1",
+   "checks": 56,
+   "flips": 7,
+   "total_checks": 224,
+   "total_flips": 10,
+   "evidence": 0.25737844703756363,
+   "drifted": false
+  },
+  {
+   "label": "Haiku, part 2",
+   "checks": 56,
+   "flips": 7,
+   "total_checks": 280,
+   "total_flips": 17,
+   "evidence": 0.5933556556974287,
+   "drifted": false
+  },
+  {
+   "label": "Haiku, part 3",
+   "checks": 56,
+   "flips": 8,
+   "total_checks": 336,
+   "total_flips": 25,
+   "evidence": 2.7063347262667157,
+   "drifted": false
+  },
+  {
+   "label": "Haiku again, part 1",
+   "checks": 56,
+   "flips": 3,
+   "total_checks": 392,
+   "total_flips": 28,
+   "evidence": 2.203770347178305,
+   "drifted": false
+  },
+  {
+   "label": "Haiku again, part 2",
+   "checks": 56,
+   "flips": 4,
+   "total_checks": 448,
+   "total_flips": 32,
+   "evidence": 2.6539498841958444,
+   "drifted": false
+  },
+  {
+   "label": "Haiku again, part 3",
+   "checks": 56,
+   "flips": 3,
+   "total_checks": 504,
+   "total_flips": 35,
+   "evidence": 2.25830989397144,
+   "drifted": false
+  }
+ ],
+ "drifted": false,
+ "summary": "35 flips in 504 re-scored examples over 7 checks (rate 0.069; allowed 0.050). No drift shown: evidence 2.26, alarm at 20. Keep checking; looking again does not raise the false-alarm rate.",
+ "first_alarm": null,
+ "post_hoc_allowed_sensitivity": {
+  "0.02": {
+   "drifted": true,
+   "first_alarm": "Haiku, part 2"
+  },
+  "0.03": {
+   "drifted": true,
+   "first_alarm": "Haiku, part 3"
+  },
+  "0.04": {
+   "drifted": true,
+   "first_alarm": "Haiku, part 3"
+  },
+  "0.05": {
+   "drifted": false,
+   "first_alarm": null
+  }
+ },
+ "agreement_with_suite_labels": {
+  "codex": 0.9404761904761905,
+  "haiku": 0.8928571428571429
+ },
+ "haiku_self_flip_rate": 0.10714285714285714,
+ "jury": {
+  "judges": 2,
+  "cases": 168,
+  "error_rates": [
+   0.05952380952380952,
+   0.10714285714285714
+  ],
+  "correlation": 0.15686808131901422,
+  "effective_judges": 1.728805584920003,
+  "single_accuracy": 0.9404761904761905,
+  "majority_accuracy": 0.8511904761904762,
+  "summary": "2 judges on 168 cases: errors correlate at 0.16, so the jury is worth 1.73 independent judges; majority accuracy 0.851 vs 0.940 for the best single judge"
+ },
+ "by_suite": {
+  "correctness": {
+   "cases": 80,
+   "flips_vs_codex": 7
+  },
+  "hallucination": {
+   "cases": 37,
+   "flips_vs_codex": 5
+  },
+  "tool_response_handling": {
+   "cases": 51,
+   "flips_vs_codex": 10
+  }
+ }
+}

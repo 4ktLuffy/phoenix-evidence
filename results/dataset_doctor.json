@@ -1,0 +1,517 @@
+{
+ "completeness.eval.ts": {
+  "examples": 45,
+  "bar": 0.8,
+  "problems": [
+   "4 pairs of (near-)copies with different labels: a label error, or a deliberate minimal pair"
+  ],
+  "exact_copies": [],
+  "near_copies": [
+   [
+    "13",
+    "20",
+    0.814
+   ],
+   [
+    "13",
+    "30",
+    0.85
+   ],
+   [
+    "15",
+    "17",
+    0.91
+   ],
+   [
+    "20",
+    "30",
+    0.899
+   ],
+   [
+    "34",
+    "35",
+    0.978
+   ]
+  ],
+  "conflicting": [
+   [
+    "13",
+    "30",
+    0.85
+   ],
+   [
+    "15",
+    "17",
+    0.91
+   ],
+   [
+    "20",
+    "30",
+    0.899
+   ],
+   [
+    "34",
+    "35",
+    0.978
+   ]
+  ],
+  "labels": {
+   "examples": 45,
+   "classes": {
+    "complete": 17,
+    "incomplete": 28
+   },
+   "constant_judge_accuracy": 0.6222222222222222,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 42,
+   "pass_probability": {
+    "0.90": 0.3289328821257058,
+    "0.95": 0.8133833179769385,
+    "0.99": 0.9989256715504135
+   },
+   "examples_needed": {
+    "0.85": 494,
+    "0.90": 113
+   },
+   "warnings": []
+  }
+ },
+ "conciseness.eval.ts": {
+  "examples": 34,
+  "bar": 0.7,
+  "problems": [
+   "a judge that always answers 'verbose' passes the bar",
+   "the smallest class has 9 examples: its recall cannot be measured"
+  ],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 34,
+   "classes": {
+    "concise": 9,
+    "verbose": 25
+   },
+   "constant_judge_accuracy": 0.7352941176470589,
+   "constant_judge_passes": true,
+   "min_correct_to_pass": 30,
+   "pass_probability": {
+    "0.90": 0.7504082837878765,
+    "0.95": 0.9740843704640361,
+    "0.99": 0.9999781520121159
+   },
+   "examples_needed": {
+    "0.75": 662,
+    "0.80": 167
+   },
+   "warnings": [
+    "a judge that always answers 'verbose' passes the bar",
+    "the smallest class has 9 examples: its recall cannot be measured"
+   ]
+  }
+ },
+ "correctness.eval.ts": {
+  "examples": 80,
+  "bar": 0.7,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 80,
+   "classes": {
+    "correct": 40,
+    "incorrect": 40
+   },
+   "constant_judge_accuracy": 0.5,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 65,
+   "pass_probability": {
+    "0.90": 0.9946955513485106,
+    "0.95": 0.999998082761103,
+    "0.99": 0.9999999999999999
+   },
+   "examples_needed": {
+    "0.75": 662,
+    "0.80": 167
+   },
+   "warnings": []
+  }
+ },
+ "faithfulness.eval.ts": {
+  "examples": 16,
+  "bar": 0.7,
+  "problems": [
+   "8 pairs of (near-)copies with different labels: a label error, or a deliberate minimal pair",
+   "only a perfect score clears the bar on an interval",
+   "the smallest class has 8 examples: its recall cannot be measured"
+  ],
+  "exact_copies": [],
+  "near_copies": [
+   [
+    "0",
+    "1",
+    0.911
+   ],
+   [
+    "2",
+    "3",
+    0.827
+   ],
+   [
+    "4",
+    "5",
+    0.856
+   ],
+   [
+    "6",
+    "7",
+    0.94
+   ],
+   [
+    "8",
+    "9",
+    0.902
+   ],
+   [
+    "10",
+    "11",
+    0.929
+   ],
+   [
+    "12",
+    "13",
+    0.872
+   ],
+   [
+    "14",
+    "15",
+    0.931
+   ]
+  ],
+  "conflicting": [
+   [
+    "0",
+    "1",
+    0.911
+   ],
+   [
+    "2",
+    "3",
+    0.827
+   ],
+   [
+    "4",
+    "5",
+    0.856
+   ],
+   [
+    "6",
+    "7",
+    0.94
+   ],
+   [
+    "8",
+    "9",
+    0.902
+   ],
+   [
+    "10",
+    "11",
+    0.929
+   ],
+   [
+    "12",
+    "13",
+    0.872
+   ],
+   [
+    "14",
+    "15",
+    0.931
+   ]
+  ],
+  "labels": {
+   "examples": 16,
+   "classes": {
+    "faithful": 8,
+    "unfaithful": 8
+   },
+   "constant_judge_accuracy": 0.5,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 16,
+   "pass_probability": {
+    "0.90": 0.1853020188851846,
+    "0.95": 0.4401266686517654,
+    "0.99": 0.8514577710948755
+   },
+   "examples_needed": {
+    "0.75": 662,
+    "0.80": 167
+   },
+   "warnings": [
+    "only a perfect score clears the bar on an interval",
+    "the smallest class has 8 examples: its recall cannot be measured"
+   ]
+  }
+ },
+ "hallucination.eval.ts": {
+  "examples": 37,
+  "bar": 0.8,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 37,
+   "classes": {
+    "hallucinated": 19,
+    "grounded": 18
+   },
+   "constant_judge_accuracy": 0.5135135135135135,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 35,
+   "pass_probability": {
+    "0.90": 0.2703407945392682,
+    "0.95": 0.7183106357464011,
+    "0.99": 0.9939715930343916
+   },
+   "examples_needed": {
+    "0.85": 494,
+    "0.90": 113
+   },
+   "warnings": []
+  }
+ },
+ "pii_detection.eval.ts": {
+  "examples": 150,
+  "bar": 0.9,
+  "problems": [
+   "one label only: a judge that always gives it scores 100%"
+  ],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 150,
+   "classes": {
+    "pii_detected": 150
+   },
+   "constant_judge_accuracy": 1.0,
+   "constant_judge_passes": true,
+   "min_correct_to_pass": 143,
+   "pass_probability": {
+    "0.95": 0.5227671131369488,
+    "0.99": 0.999850442918378
+   },
+   "examples_needed": {
+    "0.95": 255
+   },
+   "warnings": [
+    "one label only: a judge that always gives it scores 100%"
+   ]
+  }
+ },
+ "pii_detection.synthetic.eval.ts": {
+  "examples": 40,
+  "bar": 0.8,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 40,
+   "classes": {
+    "pii_detected": 24,
+    "no_pii_detected": 16
+   },
+   "constant_judge_accuracy": 0.6,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 38,
+   "pass_probability": {
+    "0.90": 0.2228081243394069,
+    "0.95": 0.6767357607486475,
+    "0.99": 0.9925026366046041
+   },
+   "examples_needed": {
+    "0.85": 494,
+    "0.90": 113
+   },
+   "warnings": []
+  }
+ },
+ "refusal.eval.ts": {
+  "examples": 40,
+  "bar": 0.7,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 40,
+   "classes": {
+    "refused": 23,
+    "answered": 17
+   },
+   "constant_judge_accuracy": 0.575,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 34,
+   "pass_probability": {
+    "0.90": 0.900483576034449,
+    "0.95": 0.996608102422064,
+    "0.99": 0.9999998604073517
+   },
+   "examples_needed": {
+    "0.75": 662,
+    "0.80": 167
+   },
+   "warnings": []
+  }
+ },
+ "retrieval_relevance.eval.ts": {
+  "examples": 33,
+  "bar": 0.8,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 33,
+   "classes": {
+    "relevant": 16,
+    "irrelevant": 17
+   },
+   "constant_judge_accuracy": 0.5151515151515151,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 32,
+   "pass_probability": {
+    "0.90": 0.14421472045228456,
+    "0.95": 0.5036498595921008,
+    "0.99": 0.9569740434643667
+   },
+   "examples_needed": {
+    "0.85": 494,
+    "0.90": 113
+   },
+   "warnings": []
+  }
+ },
+ "tool_invocation.eval.ts": {
+  "examples": 31,
+  "bar": 0.7,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [
+   [
+    "27",
+    "28",
+    0.831
+   ]
+  ],
+  "conflicting": [],
+  "labels": {
+   "examples": 31,
+   "classes": {
+    "incorrect": 16,
+    "correct": 15
+   },
+   "constant_judge_accuracy": 0.5161290322580645,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 27,
+   "pass_probability": {
+    "0.90": 0.8067985260486806,
+    "0.95": 0.9821076873124565,
+    "0.99": 0.9999863221222334
+   },
+   "examples_needed": {
+    "0.75": 662,
+    "0.80": 167
+   },
+   "warnings": []
+  }
+ },
+ "tool_response_handling.eval.ts": {
+  "examples": 51,
+  "bar": 0.7,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 51,
+   "classes": {
+    "correct": 25,
+    "incorrect": 26
+   },
+   "constant_judge_accuracy": 0.5098039215686274,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 43,
+   "pass_probability": {
+    "0.90": 0.9357050064935883,
+    "0.95": 0.9991223973822247,
+    "0.99": 0.9999999979173587
+   },
+   "examples_needed": {
+    "0.75": 662,
+    "0.80": 167
+   },
+   "warnings": []
+  }
+ },
+ "toxicity.eval.ts": {
+  "examples": 58,
+  "bar": 0.8,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 58,
+   "classes": {
+    "toxic": 29,
+    "non-toxic": 29
+   },
+   "constant_judge_accuracy": 0.5,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 53,
+   "pass_probability": {
+    "0.90": 0.47130990163931363,
+    "0.95": 0.9309064609300592,
+    "0.99": 0.9999740757533008
+   },
+   "examples_needed": {
+    "0.85": 494,
+    "0.90": 113
+   },
+   "warnings": []
+  }
+ },
+ "user_friction.eval.ts": {
+  "examples": 40,
+  "bar": 0.8,
+  "problems": [],
+  "exact_copies": [],
+  "near_copies": [],
+  "conflicting": [],
+  "labels": {
+   "examples": 40,
+   "classes": {
+    "friction": 16,
+    "no_friction": 24
+   },
+   "constant_judge_accuracy": 0.6,
+   "constant_judge_passes": false,
+   "min_correct_to_pass": 38,
+   "pass_probability": {
+    "0.90": 0.2228081243394069,
+    "0.95": 0.6767357607486475,
+    "0.99": 0.9925026366046041
+   },
+   "examples_needed": {
+    "0.85": 494,
+    "0.90": 113
+   },
+   "warnings": []
+  }
+ }
+}

@@ -1,0 +1,98 @@
+{
+ "design": {
+  "discordant": 0.2,
+  "max_examples": 2000,
+  "look_every": 10,
+  "runs": 3000,
+  "alpha": 0.05
+ },
+ "rows": [
+  {
+   "q": 0.5,
+   "sequential a=0.5": {
+    "false_decision": 0.026
+   },
+   "sequential a=2.0": {
+    "false_decision": 0.029
+   },
+   "sequential a=10.0": {
+    "false_decision": 0.024
+   },
+   "naive sign test every batch": {
+    "false_decision": 0.2873
+   }
+  },
+  {
+   "q": 0.6,
+   "sequential a=0.5": {
+    "decided_by_2000": 0.78,
+    "wrong_direction": 0.0013,
+    "median_examples": 930.0
+   },
+   "sequential a=2.0": {
+    "decided_by_2000": 0.8393,
+    "wrong_direction": 0.0007,
+    "median_examples": 830.0
+   },
+   "sequential a=10.0": {
+    "decided_by_2000": 0.8817,
+    "wrong_direction": 0.0,
+    "median_examples": 820
+   },
+   "naive sign test every batch": {
+    "decided_by_2000": 0.9877,
+    "wrong_direction": 0.008,
+    "median_examples": 330
+   },
+   "examples_fixed_80": 1020
+  },
+  {
+   "q": 0.7,
+   "sequential a=0.5": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0007,
+    "median_examples": 270.0
+   },
+   "sequential a=2.0": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0003,
+    "median_examples": 240
+   },
+   "sequential a=10.0": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0,
+    "median_examples": 280.0
+   },
+   "naive sign test every batch": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0013,
+    "median_examples": 120.0
+   },
+   "examples_fixed_80": 260
+  },
+  {
+   "q": 0.8,
+   "sequential a=0.5": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0,
+    "median_examples": 110.0
+   },
+   "sequential a=2.0": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0,
+    "median_examples": 110.0
+   },
+   "sequential a=10.0": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0,
+    "median_examples": 150.0
+   },
+   "naive sign test every batch": {
+    "decided_by_2000": 1.0,
+    "wrong_direction": 0.0,
+    "median_examples": 60.0
+   },
+   "examples_fixed_80": 100
+  }
+ ]
+}

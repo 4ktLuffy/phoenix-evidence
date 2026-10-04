@@ -7,3 +7,4 @@ __pycache__/
 results/scratch/
 bench/phoenix_suites/.work/
 bench/phoenix_suites/suites.inputs.json
+.night/

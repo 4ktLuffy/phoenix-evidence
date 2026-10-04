@@ -1,0 +1,31 @@
+{
+ "problems": [
+  "1 example is an exact copy of another: each counts twice",
+  "1 pair of (near-)copies with different labels: a label error, or a deliberate minimal pair",
+  "1 pair of (near-)copies in different splits: one split leaks into the other"
+ ],
+ "exact_copies": [
+  [
+   "RGF0YXNldEV4YW1wbGU6OTkwMQ==",
+   "RGF0YXNldEV4YW1wbGU6OTkwMg=="
+  ]
+ ],
+ "near_copies": [],
+ "conflicting": [
+  [
+   "RGF0YXNldEV4YW1wbGU6OTkwMQ==",
+   "RGF0YXNldEV4YW1wbGU6OTkwMg==",
+   1.0
+  ]
+ ],
+ "cross_split": [
+  [
+   "RGF0YXNldEV4YW1wbGU6OTkwMQ==",
+   "RGF0YXNldEV4YW1wbGU6OTkwMg==",
+   1.0
+  ]
+ ],
+ "in_several_splits": [],
+ "unlabelled": [],
+ "labels": null
+}

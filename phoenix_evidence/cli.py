@@ -1,15 +1,19 @@
 """`phoenix-evidence`: the questions Phoenix's numbers leave open, answered against any Phoenix server.
 
-    phoenix-evidence compare BASE_EXPERIMENT_ID CANDIDATE_EXPERIMENT_ID [--fail-on-regression]
+    phoenix-evidence compare BASE_EXPERIMENT_ID CANDIDATE_EXPERIMENT_ID [--fail-on-regression] [--sequential]
     phoenix-evidence certify-feedback PROJECT ANNOTATION_NAME [--min-kappa 0.6] [--strict]
     phoenix-evidence audit DATASET --threshold 0.8 [--label-key label]
     phoenix-evidence plan-labels PROJECT ANNOTATION_NAME --budget 60 --out plan.json
     phoenix-evidence corrected-rate plan.json --pass-label helpful
+    phoenix-evidence price --traces 10000 --width 0.1 --judge-cost 0.002 --human-cost 0.5 [--disagreement 0.1]
+    phoenix-evidence doctor DATASET [--splits train,test] [--threshold 0.8]
+    phoenix-evidence canary REFERENCE_EXPERIMENT CHECK_EXPERIMENT... --evaluator NAME --allowed 0.05
 
 The server is the one `phoenix.client.Client()` finds (PHOENIX_BASE_URL, PHOENIX_API_KEY), or
 `--url`. Every command takes `--json PATH`. In GitHub Actions, `compare` also writes its table to
 the job summary. Exit status: 1 when `compare --fail-on-regression` finds a regression, or
-`certify-feedback` finds the judge NOT_TRUSTWORTHY (with `--strict`, also NOT_ENOUGH_EVIDENCE).
+`certify-feedback` finds the judge NOT_TRUSTWORTHY (with `--strict`, also NOT_ENOUGH_EVIDENCE),
+or `canary --fail-on-drift` shows drift.
 """
 
 from __future__ import annotations
@@ -37,6 +41,8 @@ def _compare(args: argparse.Namespace) -> int:
     from phoenix_evidence.phoenix import compare_experiments
 
     lower = ['task_error', *(m for m in (args.lower_is_better or '').split(',') if m)]
+    if args.sequential:
+        return _compare_sequential(args, lower)
     result = compare_experiments(_client(args.url), args.base, args.candidate, args.alpha, lower)
     table = result.markdown()
     print(table)
@@ -53,6 +59,28 @@ def _compare(args: argparse.Namespace) -> int:
         with open(summary, 'a') as f:
             f.write(table + '\n')
     _dump(args.json, {'rows': result.rows(), 'regressions': regressions, 'improvements': improvements})
+    return 1 if args.fail_on_regression and regressions else 0
+
+
+def _compare_sequential(args: argparse.Namespace, lower: list[str]) -> int:
+    from phoenix_evidence.phoenix import sequential_compare_experiments
+
+    report = sequential_compare_experiments(_client(args.url), args.base, args.candidate, args.alpha, lower)
+    lines = [f'{name}: {seq}' for name, seq in report.metrics.items()]
+    lines += [f'{name}: scored only in the {side}; not tested' for name, side in report.only_in.items()]
+    lines.append(f'(each metric at alpha {report.alpha_per_metric:.4g}: {args.alpha:g} over '
+                 f'{len(report.metrics) + len(report.only_in)} metrics)')  # fmt: skip
+    text = '\n'.join(lines)
+    print(text)
+    summary = os.environ.get('GITHUB_STEP_SUMMARY')
+    if summary:
+        with open(summary, 'a') as f:
+            f.write('```\n' + text + '\n```\n')
+    regressions = [n for n, s in report.metrics.items() if s.decision == 'candidate worse']
+    _dump(args.json, {'metrics': {n: {'pairs': s.pairs, 'better': s.better, 'worse': s.worse, 'ties': s.ties,
+                                      'evidence': s.evidence, 'decision': s.decision}
+                                  for n, s in report.metrics.items()},
+                      'only_in': report.only_in, 'alpha_per_metric': report.alpha_per_metric})  # fmt: skip
     return 1 if args.fail_on_regression and regressions else 0
 
 
@@ -130,6 +158,7 @@ def _plan_labels(args: argparse.Namespace) -> int:
         seed=args.seed,
         human_annotation=args.human_annotation,
         judge_identifier=args.judge_identifier,
+        judge_probability=args.judge_probability,
     )
     Path(args.out).write_text(json.dumps(plan, indent=1))
     print(f'{len(plan["chosen"])} of {len(plan["population"])} judged spans chosen for human labels '
@@ -158,6 +187,46 @@ def _corrected_rate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _price(args: argparse.Namespace) -> int:
+    from phoenix_evidence._price import price_of_certainty
+
+    p = price_of_certainty(args.traces, args.width, args.judge_cost, args.human_cost, args.pass_rate,
+                           args.disagreement, args.alpha)  # fmt: skip
+    print(p)
+    _dump(args.json, {'human_only': vars(p.human_only), 'corrected': vars(p.corrected),
+                      'break_even_human_cost': p.break_even_human_cost})  # fmt: skip
+    return 0
+
+
+def _doctor(args: argparse.Namespace) -> int:
+    from phoenix_evidence.phoenix import doctor_dataset
+
+    splits = [x for x in (args.splits or '').split(',') if x]
+    d = doctor_dataset(_client(args.url), args.dataset, args.label_key, splits, args.threshold, args.similar)
+    print(d)
+    for a, b, sim in d.conflicting:
+        print(f'  different labels: {a} / {b} (similarity {sim})')
+    for a, b, sim in d.cross_split:
+        print(f'  across splits: {a} / {b} (similarity {sim})')
+    _dump(args.json, {'problems': d.problems(), 'exact_copies': d.exact_copies, 'near_copies': d.near_copies,
+                      'conflicting': d.conflicting, 'cross_split': d.cross_split,
+                      'in_several_splits': d.in_several_splits, 'unlabelled': d.unlabelled, 'labels': d.labels})  # fmt: skip
+    return 1 if args.strict and d.problems() else 0
+
+
+def _canary(args: argparse.Namespace) -> int:
+    from phoenix_evidence.phoenix import judge_canary
+
+    report = judge_canary(_client(args.url), args.reference, args.checks, args.evaluator, args.allowed, args.alpha)
+    for look in report.looks:
+        mark = '  DRIFT' if look.drifted else ''
+        print(f'{look.label}: {look.flips} flips in {look.checks}; evidence {look.evidence:.2f}{mark}')
+    print(report)
+    _dump(args.json, {'allowed': report.allowed, 'alpha': report.alpha, 'drifted': report.drifted,
+                      'looks': [vars(look) for look in report.looks]})  # fmt: skip
+    return 1 if args.fail_on_drift and report.drifted else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog='phoenix-evidence', description=__doc__.split('\n\n')[0])
     parser.add_argument('--url', help='Phoenix base URL (default: PHOENIX_BASE_URL or the client default)')
@@ -169,6 +238,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument('--alpha', type=float, default=0.05)
     p.add_argument('--lower-is-better', help='comma-separated evaluator names where a lower score is better')
     p.add_argument('--fail-on-regression', action='store_true')
+    p.add_argument(
+        '--sequential',
+        action='store_true',
+        help='decide as soon as the evidence allows; safe to rerun while the experiments are still running',
+    )
     p.add_argument('--json')
     p.set_defaults(run=_compare)
 
@@ -206,6 +280,11 @@ def main(argv: list[str] | None = None) -> int:
         '--judge-identifier',
         help='the judge configuration to use (its annotation identifier); default: the latest judge label of any configuration',
     )
+    p.add_argument(
+        '--judge-probability',
+        action='store_true',
+        help="read the judge's annotation score as its probability of a pass: used to choose spans and in the corrected rate",
+    )
     p.set_defaults(run=_plan_labels)
 
     p = sub.add_parser('corrected-rate', help="the judge's pass rate, corrected with the planned human labels")
@@ -217,6 +296,39 @@ def main(argv: list[str] | None = None) -> int:
         help="the name humans label under, if not the judge's (labelling under the judge's own name in Phoenix's span panel overwrites the judge's annotation)",
     )
     p.set_defaults(run=_corrected_rate)
+
+    p = sub.add_parser('price', help='cheapest mix of judge calls and human labels for a given interval width')
+    p.add_argument('--traces', type=int, required=True)
+    p.add_argument('--width', type=float, required=True, help='full width of the interval, e.g. 0.1 for +/-0.05')
+    p.add_argument('--judge-cost', type=float, required=True, help='cost of one judge call')
+    p.add_argument('--human-cost', type=float, required=True, help='cost of one human label')
+    p.add_argument('--pass-rate', type=float, default=0.5, help='expected pass rate (0.5 is the worst case)')
+    p.add_argument('--disagreement', type=float, default=0.1,
+                   help='how often judge and human differ (certify-feedback measures it)')  # fmt: skip
+    p.add_argument('--alpha', type=float, default=0.05)
+    p.add_argument('--json')
+    p.set_defaults(run=_price, url=None)
+
+    p = sub.add_parser('doctor', help='copies, conflicting labels and split leakage in a labelled dataset')
+    p.add_argument('dataset')
+    p.add_argument('--label-key', default='label')
+    p.add_argument('--splits', help='comma-separated split names to check for leakage between')
+    p.add_argument('--threshold', type=float, help='the pass bar a judge must clear on this dataset')
+    p.add_argument('--similar', type=float, default=0.8, help='word 3-gram Jaccard similarity for a near-copy')
+    p.add_argument('--strict', action='store_true', help='exit 1 when any problem is found')
+    p.add_argument('--json')
+    p.set_defaults(run=_doctor)
+
+    p = sub.add_parser('canary', help='has the judge drifted? safe to run on every new check')
+    p.add_argument('reference', help='experiment holding the frozen judge labels')
+    p.add_argument('checks', nargs='+', help='later experiments that re-ran the judge, oldest first')
+    p.add_argument('--evaluator', required=True, help='the judge evaluator name in those experiments')
+    p.add_argument('--allowed', type=float, required=True,
+                   help="flip rate that is not drift; the judge's own repeat-flip rate is a floor")  # fmt: skip
+    p.add_argument('--alpha', type=float, default=0.05)
+    p.add_argument('--fail-on-drift', action='store_true')
+    p.add_argument('--json')
+    p.set_defaults(run=_canary)
 
     p = sub.add_parser('audit', help='what can this labelled dataset decide about a judge?')
     p.add_argument('dataset')
@@ -231,4 +343,16 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def main_exit() -> None:
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except ValueError as e:  # refusals and bad input: say why; the traceback on request
+        if os.environ.get('PHOENIX_EVIDENCE_DEBUG'):
+            raise
+        print(f'phoenix-evidence: {e} (set PHOENIX_EVIDENCE_DEBUG=1 for the traceback)', file=sys.stderr)
+        sys.exit(2)
+    except Exception as e:
+        if type(e).__name__ in {'ConnectError', 'ConnectTimeout'}:
+            print(f'phoenix-evidence: cannot reach Phoenix ({e}). Is the server running? '
+                  'Pass --url or set PHOENIX_BASE_URL.', file=sys.stderr)  # fmt: skip
+            sys.exit(2)
+        raise

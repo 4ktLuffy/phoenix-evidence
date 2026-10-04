@@ -89,7 +89,11 @@ async def judge() -> None:
         ('judge-low', 'low', 'e2e_low'),
     ]
     judges = {
-        cache: CachedJudge(cache, ConcisenessEvaluator(llm=LLM(provider='codex', model='gpt-5.6-luna', effort=effort)))
+        cache: CachedJudge(
+            cache,
+            ConcisenessEvaluator(llm=LLM(provider='codex', model='gpt-5.6-luna', effort=effort)),
+            model=f'codex:gpt-5.6-luna@{effort}',
+        )
         for _, effort, cache in configs
     }
     semaphore = asyncio.Semaphore(8)

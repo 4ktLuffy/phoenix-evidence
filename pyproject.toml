@@ -36,6 +36,7 @@ addopts = "-p pytester"
 
 [tool.ruff]
 line-length = 120
+extend-exclude = ["results/review/review_3_probes"]  # the reviewer's scripts, kept as written
 
 [tool.ruff.format]
 quote-style = "single"

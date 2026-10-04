@@ -34,6 +34,7 @@ class CorrectedRate:
     labelled: int
     traces: int
     weight: float
+    raw_estimate: float | None = None  # unclipped: unbiased, but can fall outside [0, 1]
 
     def __str__(self) -> str:
         lo, hi = self.interval
@@ -68,10 +69,12 @@ def corrected_rate(
     labels. Weight 1 is plain prediction-powered inference; weight 0 is the human labels alone. Its
     variance is the design variance for independent unequal-probability draws,
     `N^-2 sum over labelled i of (1 - pi_i) / pi_i^2 * gap_i^2`, plus two pseudo-disagreements for
-    small samples, with a Student-t quantile on the number of labels. Traces with a far smaller chance of being labelled than the rest make that
-    variance unestimable (a group that is almost never sampled contributes nothing to it), so an
-    inclusion probability below `min_ratio` times the mean is refused; `plan_labels` keeps every
-    probability well above that.
+    small samples, with a Student-t quantile on the number of labels. The reported `estimate` is
+    clipped to [0, 1], which biases it near the ends (review 3: a true rate of 0 read 0.11 on average
+    in a ten-trace design); `raw_estimate` is the unbiased, unclipped value, for averaging or audits.
+    Traces with a far smaller chance of being labelled than the rest make that variance unestimable
+    (a group that is almost never sampled contributes nothing to it), so an inclusion probability
+    below `min_ratio` times the mean is refused; `plan_labels` keeps every probability well above that.
     """
     n_all = len(judge)
     if n_all == 0 or not human:
@@ -115,11 +118,12 @@ def corrected_rate(
         labelled=len(human),
         traces=n_all,
         weight=weight,
+        raw_estimate=estimate,
     )
 
 
 def plan_labels(
-    uncertainty: Sequence[float], budget: int, floor: float = 0.2, seed: int = 0
+    uncertainty: Sequence[float], budget: int, floor: float = 1.0, seed: int = 0
 ) -> tuple[list[int], list[float]]:
     """Which traces to send to humans: more likely where the judge is unsure, never impossible.
 
@@ -128,6 +132,12 @@ def plan_labels(
     `floor + uncertainty`, scaled to `budget` expected labels and capped at 1, then each trace is
     drawn independently. Returns the chosen indices and every trace's inclusion probability, which
     `corrected_rate` needs.
+
+    The floor caps how far a trace's chance can rise above the rest: with uncertainty in [0, 1], at
+    most (floor + 1) / floor times. A noisy signal, such as one repeat's disagreement, undersamples
+    half of the truly uncertain traces, and a wide ratio then widens the interval: at floor 0.2 it
+    cost labels against uniform sampling (0.66x), at 1.0 it did not (0.99x), and with the rates
+    measured on a real judge 1.0 did as well as 0.2 (bench/planner_sensitivity.py).
     """
     n = len(uncertainty)
     if not 0 < budget <= n:
